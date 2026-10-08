@@ -16,7 +16,7 @@ const getSessionCookieOptions = (req) => {
   return {
     httpOnly: true,
     secure: isSecureRequest,
-    sameSite: isSecureRequest ? 'none' : 'lax',
+    sameSite: 'lax',
     path: '/',
   };
 };
