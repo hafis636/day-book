@@ -5,12 +5,20 @@ const {
 } = require('../services/sessionService');
 
 const SESSION_COOKIE_NAME = 'daybook_session';
-const isProduction = process.env.NODE_ENV === 'production';
-const sessionCookieOptions = {
-  httpOnly: true,
-  secure: isProduction,
-  sameSite: isProduction ? 'none' : 'lax',
-  path: '/',
+
+const getSessionCookieOptions = (req) => {
+  const forwardedProtocol = req.get('x-forwarded-proto')?.split(',')[0].trim();
+  const isSecureRequest =
+    req.secure ||
+    forwardedProtocol === 'https' ||
+    process.env.NODE_ENV === 'production';
+
+  return {
+    httpOnly: true,
+    secure: isSecureRequest,
+    sameSite: isSecureRequest ? 'none' : 'lax',
+    path: '/',
+  };
 };
 
 const getSessionToken = (req) => {
@@ -27,7 +35,7 @@ const createSessionForAuthenticatedUser = async (req, res) => {
   try {
     const session = await createSession(req.authenticatedUserId);
     res.cookie(SESSION_COOKIE_NAME, session.token, {
-      ...sessionCookieOptions,
+      ...getSessionCookieOptions(req),
       expires: session.expiresAt,
     });
 
@@ -47,12 +55,12 @@ const getCurrentSession = async (req, res) => {
   try {
     const session = await getSessionUser(token);
     if (!session) {
-      res.clearCookie(SESSION_COOKIE_NAME, sessionCookieOptions);
+      res.clearCookie(SESSION_COOKIE_NAME, getSessionCookieOptions(req));
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
     res.cookie(SESSION_COOKIE_NAME, token, {
-      ...sessionCookieOptions,
+      ...getSessionCookieOptions(req),
       expires: session.expiresAt,
     });
     return res.json({ user: session.user });
@@ -69,7 +77,7 @@ const logout = async (req, res) => {
     if (token) {
       await revokeSession(token);
     }
-    res.clearCookie(SESSION_COOKIE_NAME, sessionCookieOptions);
+    res.clearCookie(SESSION_COOKIE_NAME, getSessionCookieOptions(req));
     return res.json({ success: true });
   } catch (error) {
     console.error('Failed to revoke session:', error);
