@@ -1,10 +1,11 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+import { API_BASE_URL } from "../../../config/api";
 
 export const usersApi = createApi({
   reducerPath: "usersApi",
   tagTypes: ["Session"],
   baseQuery: fetchBaseQuery({
-    baseUrl: process.env.REACT_APP_API_URL || "http://localhost:5000/api",
+    baseUrl: API_BASE_URL,
     credentials: "include",
   }),
   endpoints: (builder) => ({

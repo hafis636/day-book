@@ -3,9 +3,7 @@ import { Navigate, useLocation } from 'react-router-dom'
 import { useGetCurrentSessionQuery } from '../redux/services/users/usersApi'
 
 const SessionLoading = () => (
-  <div className="flex min-h-screen items-center justify-center text-slate-600" role="status">
-    Checking your session...
-  </div>
+  <></>
 )
 
 export const HomeRedirect = () => {
