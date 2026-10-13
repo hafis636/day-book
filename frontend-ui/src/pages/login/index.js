@@ -1,11 +1,29 @@
 import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useLoginUserMutation } from '../../redux/services/users/usersApi'
 import OtpLogin from './OtpLogin'
 
 const Login = () => {
+  const navigate = useNavigate()
   const [showOtpLogin, setShowOtpLogin] = useState(false)
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const canSubmitLogin = Boolean(username.trim() && password)
+  const [loginUser, { isLoading }] = useLoginUserMutation()
+  const [loginError, setLoginError] = useState('')
+  const canSubmitLogin = Boolean(username.trim() && password) && !isLoading
+
+  const handleLogin = async (event) => {
+    event.preventDefault()
+    if (!canSubmitLogin) return
+
+    setLoginError('')
+    try {
+      await loginUser({ username: username.trim(), password }).unwrap()
+      navigate('/dashboard', { replace: true })
+    } catch (error) {
+      setLoginError(error?.data?.error || 'Unable to log in. Please try again.')
+    }
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-100">
@@ -21,13 +39,16 @@ const Login = () => {
           <OtpLogin onBack={() => setShowOtpLogin(false)} />
         ) : (
           <>
-            <form className="space-y-4" onSubmit={(event) => event.preventDefault()}>
+            <form className="space-y-4" onSubmit={handleLogin}>
               <div>
                 <input
                   id="username"
                   type="text"
                   value={username}
-                  onChange={(event) => setUsername(event.target.value)}
+                  onChange={(event) => {
+                    setUsername(event.target.value)
+                    setLoginError('')
+                  }}
                   placeholder="Enter username"
                   className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -38,7 +59,10 @@ const Login = () => {
                   id="password"
                   type="password"
                   value={password}
-                  onChange={(event) => setPassword(event.target.value)}
+                  onChange={(event) => {
+                    setPassword(event.target.value)
+                    setLoginError('')
+                  }}
                   placeholder="Enter password"
                   className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -49,8 +73,13 @@ const Login = () => {
                 disabled={!canSubmitLogin}
                 className="w-full rounded-md bg-blue-600 py-2 font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-400"
               >
-                Login
+                {isLoading ? 'Logging in...' : 'Login'}
               </button>
+              {loginError && (
+                <p className="text-sm text-red-600" role="alert">
+                  {loginError}
+                </p>
+              )}
             </form>
 
             <button

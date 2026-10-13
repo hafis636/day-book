@@ -1,36 +1,49 @@
 const usersService = require('../services/usersService');
+const { LOGIN_VALIDATION, REGISTER_VALIDATION } = require('../validations/formValidations');
+
+const loginUser = async (req, res, next) => {
+  const { username, password } = req.body || {};
+  const validationError = LOGIN_VALIDATION({ username, password });
+  if (validationError) {
+    return res.status(400).json({ error: validationError });
+  }
+
+  try {
+    const userId = await usersService.authenticateUser(username, password);
+    if (!userId) {
+      return res.status(401).json({ error: 'Invalid username or password' });
+    }
+
+    req.authenticatedUserId = userId;
+    return next();
+  } catch (error) {
+    console.error('Failed to authenticate user:', error);
+    return res.status(500).json({ error: 'Failed to log in' });
+  }
+};
 
 const registerUser = async (req, res) => {
-  const { firstName, lastName, email, mobile, password, role } = req.body || {};
-  const validRoles = ['admin', 'shop owner', 'editor'];
-
-  if (![firstName, lastName, email, mobile, password, role].every((value) => typeof value === 'string' && value.trim())) {
-    return res.status(400).json({ error: 'All registration fields are required' });
+  const { firstName, lastName, email, mobile, password, roleId } = req.body || {};
+  const validationError = REGISTER_VALIDATION({ firstName, lastName, email, mobile, password, roleId });
+  if (validationError) {
+    return res.status(400).json({ error: validationError });
   }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-    return res.status(400).json({ error: 'Enter a valid email address' });
-  }
-  if (!/^\d{10}$/.test(mobile.trim())) {
-    return res.status(400).json({ error: 'Mobile number must contain exactly 10 digits' });
-  }
-  if (!/^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9\s])\S{8,}$/.test(password)) {
-    return res.status(400).json({ error: 'Password must be at least 8 characters and include a letter, number, and special character' });
-  }
-  if (!validRoles.includes(role)) {
-    return res.status(400).json({ error: 'Invalid role' });
-  }
-  /*if (role === 'admin') {
+  /*if (roleId === '1') {
     return res.status(403).json({ error: 'Admin accounts can only be created by an administrator' });
   }*/
 
   try {
+    if (!(await usersService.roleIdExists(roleId))) {
+      return res.status(400).json({ error: 'Invalid role' });
+    }
+
     const user = await usersService.registerUser({
       firstName,
       lastName,
       email,
       mobile,
       password,
-      role,
+      roleId,
     });
     return res.status(201).json({ user });
   } catch (error) {
@@ -39,6 +52,16 @@ const registerUser = async (req, res) => {
     }
     console.error('Failed to register user:', error);
     return res.status(500).json({ error: 'Failed to register user' });
+  }
+};
+
+const getRoles = async (req, res) => {
+  try {
+    const roles = await usersService.getRoles();
+    return res.json(roles);
+  } catch (error) {
+    console.error('Failed to fetch roles:', error);
+    return res.status(500).json({ error: 'Failed to fetch roles' });
   }
 };
 
@@ -73,5 +96,5 @@ const getUsers = async (req, res) => {
   }
 };
 
-module.exports = { registerUser, getUserById, getUsers };
+module.exports = { loginUser, registerUser, getRoles, getUserById, getUsers };
     

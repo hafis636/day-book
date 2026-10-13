@@ -1,5 +1,5 @@
 const express = require('express');
-const { registerUser, getUserById, getUsers } = require('../controllers/usersController');
+const { loginUser, registerUser, getRoles, getUserById, getUsers } = require('../controllers/usersController');
 const { confirmUser, validateUserOtp } = require('../controllers/otpController');
 const {
   createSessionForAuthenticatedUser,
@@ -10,6 +10,8 @@ const {
 const router = express.Router();
 
 router.post('/register', registerUser);
+router.post('/login', loginUser, createSessionForAuthenticatedUser);
+router.get('/roles', getRoles);
 router.get('/otp/confirm-user', confirmUser);
 router.post('/otp/validate', validateUserOtp, createSessionForAuthenticatedUser);
 router.get('/session', getCurrentSession);

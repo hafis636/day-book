@@ -1,17 +1,24 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import App from '../app/App';
 import Login from '../pages/login';
+import Register from '../pages/register';
 
 const mockCheckUserContact = jest.fn();
 const mockValidateOtp = jest.fn();
 const mockGetCurrentSession = jest.fn();
 const mockLogout = jest.fn();
+const mockLoginUser = jest.fn();
+const mockGetRoles = jest.fn();
+const mockRegisterUser = jest.fn();
 
 jest.mock('../redux/services/users/usersApi', () => ({
   useLazyConfirmUserQuery: () => [mockCheckUserContact, { isFetching: false }],
   useValidateOtpMutation: () => [mockValidateOtp, { isLoading: false }],
+  useLoginUserMutation: () => [mockLoginUser, { isLoading: false }],
+  useGetRolesQuery: () => mockGetRoles(),
+  useRegisterUserMutation: () => [mockRegisterUser, { isLoading: false }],
   useGetCurrentSessionQuery: () => mockGetCurrentSession(),
   useLogoutMutation: () => [mockLogout, { isLoading: false }],
 }));
@@ -24,6 +31,23 @@ beforeEach(() => {
   mockValidateOtp.mockReset();
   mockValidateOtp.mockReturnValue({
     unwrap: () => Promise.resolve({ valid: true }),
+  });
+  mockLoginUser.mockReset();
+  mockLoginUser.mockReturnValue({
+    unwrap: () => Promise.resolve({ valid: true }),
+  });
+  mockRegisterUser.mockReset();
+  mockRegisterUser.mockReturnValue({
+    unwrap: () => Promise.resolve({ user: { id: 'user-1' } }),
+  });
+  mockGetRoles.mockReturnValue({
+    data: [
+      { id: 1, name: 'admin' },
+      { id: 2, name: 'shop owner' },
+      { id: 3, name: 'editor' },
+    ],
+    isLoading: false,
+    isError: false,
   });
   mockGetCurrentSession.mockReturnValue({
     data: undefined,
@@ -56,6 +80,120 @@ test('renders the login route', () => {
   expect(screen.getByRole('button', { name: /^login$/i })).toBeDisabled();
 });
 
+test('loads registration role options from the roles API', () => {
+  render(
+    <MemoryRouter initialEntries={['/register']}>
+      <Routes>
+        <Route path="/register" element={<Register />} />
+      </Routes>
+    </MemoryRouter>
+  );
+
+  expect(screen.getByRole('option', { name: 'Admin' })).toHaveValue('1');
+  expect(screen.getByRole('option', { name: 'Shop Owner' })).toHaveValue('2');
+  expect(screen.getByRole('option', { name: 'Editor' })).toHaveValue('3');
+});
+
+test('keeps the role dropdown disabled while roles are loading or unavailable', () => {
+  mockGetRoles.mockReturnValue({
+    data: [],
+    isLoading: true,
+    isError: false,
+  });
+  const { rerender } = render(
+    <MemoryRouter initialEntries={['/register']}>
+      <Routes>
+        <Route path="/register" element={<Register />} />
+      </Routes>
+    </MemoryRouter>
+  );
+
+  const roleDropdown = screen.getByLabelText(/^role/i);
+  expect(roleDropdown).toBeDisabled();
+  expect(screen.queryByText(/loading roles/i)).not.toBeInTheDocument();
+
+  mockGetRoles.mockReturnValue({
+    data: [],
+    isLoading: false,
+    isError: true,
+  });
+  rerender(
+    <MemoryRouter initialEntries={['/register']}>
+      <Routes>
+        <Route path="/register" element={<Register />} />
+      </Routes>
+    </MemoryRouter>
+  );
+
+  expect(screen.getByLabelText(/^role/i)).toBeDisabled();
+  expect(screen.getByRole('alert')).toHaveTextContent(/unable to load roles/i);
+});
+
+test('uses cached role options when a background refresh is loading or fails', () => {
+  mockGetRoles.mockReturnValue({
+    data: [{ id: 2, name: 'shop owner' }],
+    isLoading: false,
+    isFetching: true,
+    isError: false,
+  });
+  const { rerender } = render(
+    <MemoryRouter initialEntries={['/register']}>
+      <Routes>
+        <Route path="/register" element={<Register />} />
+      </Routes>
+    </MemoryRouter>
+  );
+
+  expect(screen.getByLabelText(/^role/i)).toBeEnabled();
+  expect(screen.getByRole('option', { name: 'Shop Owner' })).toHaveValue('2');
+
+  mockGetRoles.mockReturnValue({
+    data: [{ id: 2, name: 'shop owner' }],
+    isLoading: false,
+    isFetching: false,
+    isError: true,
+  });
+  rerender(
+    <MemoryRouter initialEntries={['/register']}>
+      <Routes>
+        <Route path="/register" element={<Register />} />
+      </Routes>
+    </MemoryRouter>
+  );
+
+  expect(screen.getByLabelText(/^role/i)).toBeEnabled();
+  expect(screen.getByRole('option', { name: 'Shop Owner' })).toHaveValue('2');
+  expect(screen.getByRole('alert')).toHaveTextContent(/unable to load roles/i);
+});
+
+test('submits the selected role ID during registration', async () => {
+  render(
+    <MemoryRouter initialEntries={['/register']}>
+      <Routes>
+        <Route path="/register" element={<Register />} />
+      </Routes>
+    </MemoryRouter>
+  );
+
+  fireEvent.change(screen.getByLabelText(/first name/i), { target: { value: 'Casey' } });
+  fireEvent.change(screen.getByLabelText(/last name/i), { target: { value: 'User' } });
+  fireEvent.change(screen.getByLabelText(/^email/i), { target: { value: 'casey@example.com' } });
+  fireEvent.change(screen.getByLabelText(/mobile number/i), { target: { value: '1234567890' } });
+  fireEvent.change(screen.getByLabelText(/^password/i), { target: { value: 'Password1!' } });
+  fireEvent.change(screen.getByLabelText(/confirm password/i), { target: { value: 'Password1!' } });
+  fireEvent.change(screen.getByLabelText(/^role/i), { target: { value: '2' } });
+  fireEvent.click(screen.getByRole('button', { name: /create account|register/i }));
+
+  expect(mockRegisterUser).toHaveBeenCalledWith({
+    firstName: 'Casey',
+    lastName: 'User',
+    email: 'casey@example.com',
+    mobile: '1234567890',
+    password: 'Password1!',
+    roleId: '2',
+  });
+});
+
 test('enables password login only after username and password are entered', () => {
   renderLogin();
 
@@ -71,6 +209,35 @@ test('enables password login only after username and password are entered', () =
 
   userEvent.clear(usernameInput);
   expect(loginButton).toBeDisabled();
+});
+
+test('submits username and password to the login API', async () => {
+  renderLogin();
+
+  userEvent.type(screen.getByPlaceholderText(/enter username/i), ' person@example.com ');
+  userEvent.type(screen.getByPlaceholderText(/enter password/i), 'password123');
+  userEvent.click(screen.getByRole('button', { name: /^login$/i }));
+
+  expect(mockLoginUser).toHaveBeenCalledWith({
+    username: 'person@example.com',
+    password: 'password123',
+  });
+  expect(await screen.findByRole('status')).toHaveTextContent(/otp validated successfully/i);
+});
+
+test('shows an error when password login credentials are rejected', async () => {
+  mockLoginUser.mockReturnValue({
+    unwrap: () => Promise.reject({
+      data: { error: 'Invalid username or password' },
+    }),
+  });
+  renderLogin();
+
+  userEvent.type(screen.getByPlaceholderText(/enter username/i), 'person@example.com');
+  userEvent.type(screen.getByPlaceholderText(/enter password/i), 'wrong-password');
+  userEvent.click(screen.getByRole('button', { name: /^login$/i }));
+
+  expect(await screen.findByRole('alert')).toHaveTextContent(/invalid username or password/i);
 });
 
 test('redirects the base URL to login when there is no session', () => {
@@ -127,6 +294,9 @@ test('redirects to login after logout without bouncing back to the dashboard', a
   render(<App />);
 
   userEvent.click(screen.getByRole('button', { name: /taylor day/i }));
+  const accountMenu = await screen.findByRole('menu');
+  expect(within(accountMenu).getByText('editor')).toBeInTheDocument();
+  expect(within(accountMenu).getByRole('separator')).toBeInTheDocument();
   userEvent.click(await screen.findByRole('menuitem', { name: /log out/i }));
 
   expect(await screen.findByRole('heading', { name: /^login$/i })).toBeInTheDocument();

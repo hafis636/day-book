@@ -9,12 +9,23 @@ export const usersApi = createApi({
     credentials: "include",
   }),
   endpoints: (builder) => ({
+    loginUser: builder.mutation({
+      query: ({ username, password }) => ({
+        url: "/login",
+        method: "POST",
+        body: { username, password },
+      }),
+      invalidatesTags: ["Session"],
+    }),
     registerUser: builder.mutation({
       query: (user) => ({
         url: "/register",
         method: "POST",
         body: user,
       }),
+    }),
+    getRoles: builder.query({
+      query: () => "/roles",
     }),
     confirmUser: builder.query({
       query: (contact) => ({
@@ -45,7 +56,9 @@ export const usersApi = createApi({
 });
 
 export const {
+  useLoginUserMutation,
   useRegisterUserMutation,
+  useGetRolesQuery,
   useLazyConfirmUserQuery,
   useValidateOtpMutation,
   useGetCurrentSessionQuery,

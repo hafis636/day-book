@@ -51,8 +51,18 @@ const Dashboard = () => {
             {menuOpen && (
               <div
                 role="menu"
-                className="absolute right-0 z-10 mt-2 w-48 rounded-lg border border-slate-200 bg-white p-2 shadow-lg"
+                className="absolute right-0 z-10 mt-2 w-56 rounded-lg border border-slate-200 bg-white p-2 shadow-lg"
               >
+                {user.role && (
+                  <>
+                    <div role="none" className="px-3 py-2">
+                      <p className="mt-0.5 text-sm font-semibold capitalize text-slate-800">
+                        {user.role}
+                      </p>
+                    </div>
+                    <hr className="my-1 border-slate-200" />
+                  </>
+                )}
                 <button
                   type="button"
                   role="menuitem"

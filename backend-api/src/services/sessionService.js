@@ -25,11 +25,12 @@ const getSessionUser = async (token) => {
      SET last_used_at = NOW(),
          expires_at = NOW() + INTERVAL '1 day'
      FROM "daybook-dev-db".users AS u
+     INNER JOIN "daybook-dev-db".roles AS r ON r.id = u.role_id
      WHERE s.user_id = u.id
        AND s.session_token_hash = $1
        AND s.revoked_at IS NULL
        AND s.expires_at > NOW()
-     RETURNING u.id, u.first_name, u.last_name, u.email, u.username, u.role,
+     RETURNING u.id, u.first_name, u.last_name, u.email, u.username, r.name AS role,
                s.expires_at`,
     [tokenHash]
   );

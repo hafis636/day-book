@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useRegisterUserMutation } from "../../redux/services/users/usersApi";
+import {
+  useGetRolesQuery,
+  useRegisterUserMutation,
+} from "../../redux/services/users/usersApi";
 
 const initialValues = {
   firstName: "",
@@ -9,7 +12,7 @@ const initialValues = {
   mobile: "",
   password: "",
   confirmPassword: "",
-  role: "",
+  roleId: "",
 };
 
 function Register() {
@@ -17,6 +20,11 @@ function Register() {
   const [errors, setErrors] = useState({});
   const [submitted, setSubmitted] = useState(false);
   const [apiError, setApiError] = useState("");
+  const {
+    data: roles = [],
+    isLoading: areRolesLoading,
+    isError: rolesError,
+  } = useGetRolesQuery();
   const [registerUser, { isLoading }] = useRegisterUserMutation();
 
   const updateField = (event) => {
@@ -53,7 +61,7 @@ function Register() {
     } else if (values.password !== values.confirmPassword) {
       nextErrors.confirmPassword = "Passwords do not match.";
     }
-    if (!values.role) nextErrors.role = "Please select a role.";
+    if (!values.roleId) nextErrors.roleId = "Please select a role.";
 
     setErrors(nextErrors);
     setSubmitted(false);
@@ -67,7 +75,7 @@ function Register() {
           email: values.email.trim(),
           mobile: values.mobile.trim(),
           password: values.password,
-          role: values.role,
+          roleId: values.roleId,
         }).unwrap();
         setSubmitted(true);
         setValues(initialValues);
@@ -142,7 +150,7 @@ function Register() {
 
             <div>
               <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-slate-700">
-                Email <span className="text-rose-600">*</span>
+                Email (Username)<span className="text-rose-600">*</span>
               </label>
               <input
                 id="email"
@@ -226,19 +234,27 @@ function Register() {
             </label>
             <select
               id="role"
-              name="role"
-              value={values.role}
+              name="roleId"
+              value={values.roleId}
               onChange={updateField}
-              className={fieldClassName("role")}
-              aria-invalid={Boolean(errors.role)}
-              aria-describedby={errors.role ? "role-error" : undefined}
+              disabled={roles.length === 0}
+              className={`${fieldClassName("roleId")} cursor-pointer disabled:cursor-not-allowed`}
+              aria-invalid={Boolean(errors.roleId)}
+              aria-describedby={errors.roleId ? "role-error" : undefined}
             >
               <option value="">Select a role</option>
-              <option value="admin">Admin</option>
-              <option value="shop owner">Shop owner</option>
-              <option value="editor">Editor</option>
+              {roles.map((role) => (
+                <option key={role.id} value={role.id}>
+                  {role.name.replace(/\b\w/g, (character) => character.toUpperCase())}
+                </option>
+              ))}
             </select>
-            {renderError("role")}
+            {rolesError && (
+              <p className="mt-1 text-xs text-rose-600" role="alert">
+                Unable to load roles. Refresh the page and try again.
+              </p>
+            )}
+            {renderError("roleId")}
           </div>
 
           {apiError && (
@@ -255,7 +271,7 @@ function Register() {
 
           <button
             type="submit"
-            disabled={isLoading}
+            disabled={isLoading || roles.length === 0}
             className="w-full rounded-lg bg-indigo-600 px-4 py-3 font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
           >
             {isLoading ? "Creating account..." : "Create account"}
