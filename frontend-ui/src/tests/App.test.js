@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import App from '../app/App';
 import Login from '../pages/login';
 import Register from '../pages/register';
+import { menuConfig } from '../menus/menu_config';
 
 const mockCheckUserContact = jest.fn();
 const mockValidateOtp = jest.fn();
@@ -266,6 +267,51 @@ test('redirects the base URL to the dashboard when a session exists', () => {
 
   expect(screen.getByRole('heading', { name: /welcome, taylor day/i })).toBeInTheDocument();
   expect(screen.getByText('taylor@example.com')).toBeInTheDocument();
+});
+
+test('opens role-specific left and top menus on the dashboard', () => {
+  mockGetCurrentSession.mockReturnValue({
+    data: {
+      user: {
+        id: 'user-1',
+        first_name: 'Taylor',
+        last_name: 'Day',
+        email: 'taylor@example.com',
+        role: 'engineer',
+      },
+    },
+    isLoading: false,
+    refetch: jest.fn(),
+  });
+  window.history.pushState({}, '', '/dashboard');
+
+  const originalEngineerConfig = menuConfig.engineer;
+  menuConfig.engineer = {
+    left: [{ label: 'Work logs', path: '/dashboard' }],
+    top: [{ label: 'Help', path: '/about' }],
+  };
+
+  try {
+    render(<App />);
+
+    const leftMenuToggle = screen.getByRole('button', { name: /open navigation menu/i });
+    expect(leftMenuToggle).toHaveAttribute('aria-controls', 'engineer-left-menu');
+    userEvent.click(leftMenuToggle);
+    expect(screen.getByRole('navigation', { name: 'engineer-left-menu' })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Work logs' })).toHaveAttribute('href', '/dashboard');
+    expect(screen.queryByRole('link', { name: 'Dashboard' })).not.toBeInTheDocument();
+
+    userEvent.click(screen.getByRole('button', { name: /taylor day/i }));
+    const topMenu = screen.getByRole('menu');
+    expect(topMenu).toHaveAttribute('id', 'engineer-top-menu');
+    expect(within(topMenu).getByRole('menuitem', { name: 'Help' })).toHaveAttribute('href', '/about');
+  } finally {
+    if (originalEngineerConfig) {
+      menuConfig.engineer = originalEngineerConfig;
+    } else {
+      delete menuConfig.engineer;
+    }
+  }
 });
 
 test('redirects unauthenticated dashboard visits to login', () => {
