@@ -22,7 +22,6 @@ function Register() {
   const [apiError, setApiError] = useState("");
   const {
     data: roles = [],
-    isLoading: areRolesLoading,
     isError: rolesError,
   } = useGetRolesQuery();
   const [registerUser, { isLoading }] = useRegisterUserMutation();
