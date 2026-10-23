@@ -9,7 +9,16 @@ export const menuConfig = {
     ]
   },
   engineer: {
-    left: [{ label: 'Dashboard', path: '/dashboard' }],
+    left: [
+      { label: 'Dashboard', path: '/dashboard' },
+      {
+        label: 'Projects',
+        children: [
+          { label: 'Manage Projects', path: '/manage-projects' },
+          { label: 'Add Projects', path: '/add-projects' }
+        ]
+      }
+    ],
   },
   admin: {
     left: [{ label: 'Dashboard', path: '/dashboard' }],

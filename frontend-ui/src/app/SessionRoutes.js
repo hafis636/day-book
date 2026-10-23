@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useGetCurrentSessionQuery } from '../redux/services/users/usersApi'
+import AuthenticatedLayout from './AuthenticatedLayout'
 
 const SessionLoading = () => (
   <></>
@@ -38,7 +39,7 @@ export const ProtectedRoute = ({ children }) => {
   }, [refetch])
 
   if (isLoading) return null
-  return data?.user ? children : <Navigate to="/login" replace />
+  return data?.user ? <AuthenticatedLayout>{children}</AuthenticatedLayout> : <Navigate to="/login" replace />
 }
 
 export const PublicOnlyRoute = ({ children }) => {

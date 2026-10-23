@@ -13,6 +13,7 @@ const mockLogout = jest.fn();
 const mockLoginUser = jest.fn();
 const mockGetRoles = jest.fn();
 const mockRegisterUser = jest.fn();
+const mockCreateProject = jest.fn();
 
 jest.mock('../redux/services/users/usersApi', () => ({
   useLazyConfirmUserQuery: () => [mockCheckUserContact, { isFetching: false }],
@@ -22,6 +23,7 @@ jest.mock('../redux/services/users/usersApi', () => ({
   useRegisterUserMutation: () => [mockRegisterUser, { isLoading: false }],
   useGetCurrentSessionQuery: () => mockGetCurrentSession(),
   useLogoutMutation: () => [mockLogout, { isLoading: false }],
+  useCreateProjectMutation: () => [mockCreateProject, { isLoading: false }],
 }));
 
 beforeEach(() => {
@@ -58,6 +60,10 @@ beforeEach(() => {
   mockLogout.mockReset();
   mockLogout.mockReturnValue({
     unwrap: () => Promise.resolve({ success: true }),
+  });
+  mockCreateProject.mockReset();
+  mockCreateProject.mockReturnValue({
+    unwrap: () => Promise.resolve({ project: { id: 'project-1' } }),
   });
 });
 
@@ -312,6 +318,36 @@ test('opens role-specific left and top menus on the dashboard', () => {
       delete menuConfig.engineer;
     }
   }
+});
+
+test('renders the protected engineer add-projects route', () => {
+  mockGetCurrentSession.mockReturnValue({
+    data: {
+      user: {
+        id: 'user-1',
+        first_name: 'Taylor',
+        last_name: 'Day',
+        email: 'taylor@example.com',
+        role: 'engineer',
+      },
+    },
+    isLoading: false,
+    refetch: jest.fn(),
+  });
+  window.history.pushState({}, '', '/add-projects');
+  render(<App />);
+
+  expect(screen.getByRole('heading', { name: /add projects/i })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /open navigation menu/i })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /taylor day/i })).toBeInTheDocument();
+
+  userEvent.click(screen.getByRole('button', { name: /open navigation menu/i }));
+  expect(screen.getByRole('navigation', { name: 'engineer-left-menu' })).toBeVisible();
+  expect(screen.getByRole('button', { name: /projects/i })).toHaveAttribute('aria-expanded', 'true');
+  expect(screen.getByRole('link', { name: 'Add Projects' })).toHaveAttribute('href', '/add-projects');
+  expect(screen.getByRole('link', { name: 'Manage Projects' })).toHaveAttribute('href', '/manage-projects');
+  userEvent.click(screen.getByRole('link', { name: 'Manage Projects' }));
+  expect(screen.getByRole('heading', { name: 'Manage Projects' })).toBeInTheDocument();
 });
 
 test('redirects unauthenticated dashboard visits to login', () => {

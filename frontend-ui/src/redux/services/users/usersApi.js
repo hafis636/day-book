@@ -3,7 +3,7 @@ import { API_BASE_URL } from "../../../config/api";
 
 export const usersApi = createApi({
   reducerPath: "usersApi",
-  tagTypes: ["Session"],
+  tagTypes: ["Session", "Project"],
   baseQuery: fetchBaseQuery({
     baseUrl: API_BASE_URL,
     credentials: "include",
@@ -52,6 +52,14 @@ export const usersApi = createApi({
       }),
       invalidatesTags: ["Session"],
     }),
+    createProject: builder.mutation({
+      query: (formData) => ({
+        url: "/projects",
+        method: "POST",
+        body: formData,
+      }),
+      invalidatesTags: ["Project"],
+    }),
   }),
 });
 
@@ -63,4 +71,5 @@ export const {
   useValidateOtpMutation,
   useGetCurrentSessionQuery,
   useLogoutMutation,
+  useCreateProjectMutation,
 } = usersApi;
