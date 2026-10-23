@@ -304,7 +304,7 @@ const AddProjects = () => {
           </legend>
           <p className="mt-1 text-sm text-slate-600">
             Choose JPEG, PNG, GIF, or WebP images up to 5 MB each. You can add up to
-            20 other images.
+            10 other images.
           </p>
           <div className="mt-5 grid gap-6 sm:grid-cols-2">
             <div>

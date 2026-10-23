@@ -6,6 +6,8 @@ const {
   getCurrentSession,
   logout,
 } = require('../controllers/sessionController');
+const { createProject, parseProjectImages } = require('../controllers/projectsController');
+const requireAuthenticatedSession = require('../middleware/requireAuthenticatedSession');
 
 const router = express.Router();
 
@@ -16,6 +18,12 @@ router.get('/otp/confirm-user', confirmUser);
 router.post('/otp/validate', validateUserOtp, createSessionForAuthenticatedUser);
 router.get('/session', getCurrentSession);
 router.post('/session/logout', logout);
+router.post(
+  '/projects',
+  requireAuthenticatedSession,
+  parseProjectImages,
+  createProject
+);
 router.get('/users/:id', getUserById);
 router.get('/users', getUsers);
 

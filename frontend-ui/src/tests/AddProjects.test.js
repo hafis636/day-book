@@ -40,6 +40,7 @@ test('renders required project fields and optional project details', () => {
   expect(screen.getByLabelText(/^Cover image/)).not.toBeRequired()
   expect(screen.getByLabelText(/^Other images/)).toHaveAttribute('multiple')
   expect(screen.getByLabelText(/^Other images/)).not.toBeRequired()
+  expect(screen.getByText(/up to 10 other images/i)).toBeInTheDocument()
   expect(screen.getByRole('group', { name: 'Project details' })).toBeInTheDocument()
   expect(screen.getByRole('group', { name: /Project dates/ })).toBeInTheDocument()
   expect(screen.getByRole('group', { name: 'Location and notes' })).toBeInTheDocument()
