@@ -94,6 +94,14 @@ const validateImageFile = (file) => {
   return { value: { contentType: file.mimetype, extension: format.extension } };
 };
 
+const toPublicImageUrl = (imageUrl) => {
+  const objectPath = '/storage/v1/object/';
+  const publicObjectPath = `${objectPath}public/`;
+
+  if (imageUrl.includes(publicObjectPath)) return imageUrl;
+  return imageUrl.replace(objectPath, publicObjectPath);
+};
+
 const uploadProjectImage = async (projectId, file) => {
   const config = getStorageConfig();
   const validation = validateImageFile(file);
@@ -115,7 +123,7 @@ const uploadProjectImage = async (projectId, file) => {
 
   return {
     key,
-    imageUrl: `${config.supabaseUrl}/storage/v1/object/${encodeURIComponent(config.bucket)}/${key
+    imageUrl: `${config.supabaseUrl}/storage/v1/object/public/${encodeURIComponent(config.bucket)}/${key
       .split('/')
       .map(encodeURIComponent)
       .join('/')}`,
@@ -132,10 +140,38 @@ const deleteProjectImage = async (key) => {
   );
 };
 
+const deleteProjectImageByUrl = async (imageUrl) => {
+  const config = getStorageConfig();
+  const image = new URL(imageUrl);
+  const storage = new URL(config.supabaseUrl);
+  if (image.origin !== storage.origin) {
+    throw new Error('Project image URL does not belong to configured storage');
+  }
+
+  const segments = image.pathname.split('/').filter(Boolean).map(decodeURIComponent);
+  const objectIndex = segments.findIndex(
+    (segment, index) =>
+      segment === 'storage' &&
+      segments[index + 1] === 'v1' &&
+      segments[index + 2] === 'object'
+  );
+  if (objectIndex < 0) throw new Error('Invalid project image URL');
+
+  let bucketIndex = objectIndex + 3;
+  if (segments[bucketIndex] === 'public') bucketIndex += 1;
+  if (segments[bucketIndex] !== config.bucket || bucketIndex + 1 >= segments.length) {
+    throw new Error('Project image URL does not belong to configured storage bucket');
+  }
+
+  await deleteProjectImage(segments.slice(bucketIndex + 1).join('/'));
+};
+
 module.exports = {
   IMAGE_FORMATS,
   MAX_IMAGE_SIZE,
   deleteProjectImage,
+  deleteProjectImageByUrl,
+  toPublicImageUrl,
   uploadProjectImage,
   validateImageFile,
 };

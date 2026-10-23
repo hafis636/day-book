@@ -6,7 +6,13 @@ const {
   getCurrentSession,
   logout,
 } = require('../controllers/sessionController');
-const { createProject, parseProjectImages } = require('../controllers/projectsController');
+const {
+  createProject,
+  getProject,
+  getProjects,
+  parseProjectImages,
+  updateProject,
+} = require('../controllers/projectsController');
 const requireAuthenticatedSession = require('../middleware/requireAuthenticatedSession');
 
 const router = express.Router();
@@ -23,6 +29,14 @@ router.post(
   requireAuthenticatedSession,
   parseProjectImages,
   createProject
+);
+router.get('/projects', requireAuthenticatedSession, getProjects);
+router.get('/projects/:id', requireAuthenticatedSession, getProject);
+router.patch(
+  '/projects/:id',
+  requireAuthenticatedSession,
+  parseProjectImages,
+  updateProject
 );
 router.get('/users/:id', getUserById);
 router.get('/users', getUsers);

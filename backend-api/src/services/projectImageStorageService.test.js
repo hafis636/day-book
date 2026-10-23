@@ -1,6 +1,9 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { validateImageFile } = require('./projectImageStorageService');
+const {
+  toPublicImageUrl,
+  validateImageFile,
+} = require('./projectImageStorageService');
 
 test('accepts supported images with matching file signatures', () => {
   const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
@@ -34,5 +37,16 @@ test('rejects images with a mismatched file signature and oversized files', () =
       buffer: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
     }).error,
     /5 MB per-file limit/
+  );
+});
+
+test('uses public object URLs and keeps existing public URLs unchanged', () => {
+  assert.equal(
+    toPublicImageUrl('https://example.supabase.co/storage/v1/object/bucket/projects/1/cover.png'),
+    'https://example.supabase.co/storage/v1/object/public/bucket/projects/1/cover.png'
+  );
+  assert.equal(
+    toPublicImageUrl('https://example.supabase.co/storage/v1/object/public/bucket/projects/1/cover.png'),
+    'https://example.supabase.co/storage/v1/object/public/bucket/projects/1/cover.png'
   );
 });

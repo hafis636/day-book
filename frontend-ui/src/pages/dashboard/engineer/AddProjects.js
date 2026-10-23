@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useCreateProjectMutation } from '../../../redux/services/users/usersApi'
 
 const projectTypes = [
@@ -15,6 +15,8 @@ const projectTypes = [
 ]
 
 const projectStatuses = ['In discussion', 'Planning', 'Ongoing', 'Completed']
+const capitalizeWords = (text) =>
+  text.replace(/\b\w/g, (character) => character.toUpperCase())
 const maxImageSize = 5 * 1024 * 1024
 const supportedImageTypes = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp'])
 
@@ -30,12 +32,41 @@ const FieldLabel = ({ htmlFor, children, required = false, optional = false }) =
       </span>
     )}
     {optional && (
-      <span className="ml-1.5 font-normal text-slate-500">(optional)</span>
+      <span className="ml-1.5 font-normal text-slate-500">(Optional)</span>
     )}
   </label>
 )
 
-const AddProjects = () => {
+const ImageThumbnail = ({ src, alt, removeLabel, onRemove }) => (
+  <div className="relative h-20 w-full overflow-hidden rounded-lg">
+    <img src={src} alt={alt} className="h-full w-full object-cover" />
+    <button
+      type="button"
+      title="Remove"
+      aria-label={removeLabel}
+      onClick={onRemove}
+      className="absolute right-1 top-1 grid h-5 w-5 place-items-center rounded-full bg-slate-950/75 text-sm leading-none text-white shadow transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-white"
+    >
+      <span aria-hidden="true">×</span>
+    </button>
+  </div>
+)
+
+const TemporaryImageThumbnail = ({ file, onRemove }) => (
+  <ImageThumbnail
+    src={file.previewUrl}
+    alt={file.file.name}
+    removeLabel={`Remove ${file.file.name}`}
+    onRemove={onRemove}
+  />
+)
+
+const AddProjects = ({
+  project,
+  existingImages = [],
+  onSubmitProject,
+  isSaving: isSavingProp,
+}) => {
   const [submissionMessage, setSubmissionMessage] = useState('')
   const [submissionError, setSubmissionError] = useState('')
   const [imageErrors, setImageErrors] = useState({})
@@ -44,6 +75,33 @@ const AddProjects = () => {
     coverImage: 0,
     otherImages: 0,
   })
+  const [removedImageUrls, setRemovedImageUrls] = useState([])
+  const [coverFile, setCoverFile] = useState(null)
+  const [otherFiles, setOtherFiles] = useState([])
+  const previewUrls = useRef(new Set())
+  const isEditing = Boolean(project)
+  const isSaving = isSavingProp ?? isLoading
+  const currentCover = existingImages.find((image) => image.is_cover)
+  const otherExistingImages = existingImages.filter((image) => !image.is_cover)
+
+  useEffect(
+    () => () => {
+      previewUrls.current.forEach((url) => URL.revokeObjectURL(url))
+    },
+    []
+  )
+
+  const createFilePreview = (file) => {
+    const previewUrl = URL.createObjectURL(file)
+    previewUrls.current.add(previewUrl)
+    return { file, previewUrl }
+  }
+
+  const revokeFilePreview = (preview) => {
+    if (!preview) return
+    URL.revokeObjectURL(preview.previewUrl)
+    previewUrls.current.delete(preview.previewUrl)
+  }
 
   const handleSubmit = async (event) => {
     event.preventDefault()
@@ -72,24 +130,38 @@ const AddProjects = () => {
       requestData.append(apiField, formValues.get(formField) || '')
     })
 
-    const coverImage = form.elements.namedItem('coverImage').files[0]
-    if (coverImage?.name) requestData.append('coverImage', coverImage)
-    Array.from(form.elements.namedItem('otherImages').files).forEach((image) => {
-      if (image?.name) requestData.append('otherImages', image)
-    })
+    if (coverFile?.file.name) requestData.append('coverImage', coverFile.file)
+    otherFiles.forEach((image) => requestData.append('otherImages', image.file))
+    if (removedImageUrls.length) {
+      requestData.append('removeImageUrls', JSON.stringify(removedImageUrls))
+    }
 
     try {
-      await createProject(requestData).unwrap()
-      setSubmissionMessage('Project created successfully.')
-      form.reset()
-      setImageErrors({})
-      setImageInputVersions((versions) => ({
-        coverImage: versions.coverImage + 1,
-        otherImages: versions.otherImages + 1,
-      }))
+      if (onSubmitProject) {
+        await onSubmitProject(requestData)
+      } else {
+        await createProject(requestData).unwrap()
+      }
+      if (isEditing) {
+        return
+      } else {
+        setSubmissionMessage('Project created successfully.')
+        form.reset()
+        setImageErrors({})
+        revokeFilePreview(coverFile)
+        otherFiles.forEach(revokeFilePreview)
+        setCoverFile(null)
+        setOtherFiles([])
+        setRemovedImageUrls([])
+        setImageInputVersions((versions) => ({
+          coverImage: versions.coverImage + 1,
+          otherImages: versions.otherImages + 1,
+        }))
+      }
     } catch (error) {
       setSubmissionError(
-        error?.data?.error || 'Unable to create the project. Please try again.'
+        error?.data?.error ||
+          `Unable to ${isEditing ? 'update' : 'create'} the project. Please try again.`
       )
     }
   }
@@ -104,8 +176,14 @@ const AddProjects = () => {
     const selectedFiles = Array.from(event.target.files)
     const nonImageFile = selectedFiles.find((file) => !supportedImageTypes.has(file.type))
     const oversizedFile = selectedFiles.find((file) => file.size > maxImageSize)
+    const remainingOtherImages = otherExistingImages.filter(
+      (image) => !removedImageUrls.includes(image.image_url)
+    ).length
+    const exceedsOtherImageLimit =
+      fieldName === 'otherImages' &&
+      remainingOtherImages + otherFiles.length + selectedFiles.length > 10
 
-    if (nonImageFile || oversizedFile) {
+    if (nonImageFile || oversizedFile || exceedsOtherImageLimit) {
       event.target.value = ''
       setImageInputVersions((versions) => ({
         ...versions,
@@ -115,11 +193,24 @@ const AddProjects = () => {
         ...errors,
         [fieldName]: nonImageFile
           ? `${nonImageFile.name} is not a supported image file. Choose an image file.`
-          : `${oversizedFile.name} exceeds the 5 MB per-file limit. Remove it and choose a smaller image.`,
+          : oversizedFile
+            ? `${oversizedFile.name} exceeds the 5 MB per-file limit. Remove it and choose a smaller image.`
+            : 'A maximum of 10 other images can be added to a project.',
       }))
       return
     }
 
+    if (fieldName === 'coverImage') {
+      revokeFilePreview(coverFile)
+      setCoverFile(selectedFiles[0] ? createFilePreview(selectedFiles[0]) : null)
+    }
+    if (fieldName === 'otherImages') {
+      setOtherFiles((files) => [...files, ...selectedFiles.map(createFilePreview)])
+      setImageInputVersions((versions) => ({
+        ...versions,
+        otherImages: versions.otherImages + 1,
+      }))
+    }
     setImageErrors((errors) => {
       const nextErrors = { ...errors }
       delete nextErrors[fieldName]
@@ -127,14 +218,42 @@ const AddProjects = () => {
     })
   }
 
+  const removeExistingImage = (imageUrl) => {
+    setRemovedImageUrls((urls) => [...urls, imageUrl])
+  }
+
+  const removeCoverFile = () => {
+    revokeFilePreview(coverFile)
+    setCoverFile(null)
+    setImageInputVersions((versions) => ({
+      ...versions,
+      coverImage: versions.coverImage + 1,
+    }))
+  }
+
+  const removeOtherFile = (index) => {
+    const removedFile = otherFiles[index]
+    revokeFilePreview(removedFile)
+    setOtherFiles((files) => files.filter((_, fileIndex) => fileIndex !== index))
+    setImageInputVersions((versions) => ({
+      ...versions,
+      otherImages: versions.otherImages + 1,
+    }))
+  }
+  const remainingOtherImageSlots =
+    10 -
+    otherExistingImages.filter((image) => !removedImageUrls.includes(image.image_url))
+      .length -
+    otherFiles.length
+
   return (
     <section className="mx-auto max-w-4xl overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
       <header className="border-b border-slate-200 px-6 py-6 sm:px-8">
         <p className="text-xs font-bold uppercase tracking-[0.14em] text-blue-700">
-          Project setup
+          Project Setup
         </p>
         <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-          Add Projects
+          {isEditing ? 'Edit Project' : 'Add Projects'}
         </h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
           Add the key details for a project. Fields marked with an asterisk are
@@ -145,11 +264,11 @@ const AddProjects = () => {
       <form className="space-y-7 px-6 py-7 sm:px-8" onSubmit={handleSubmit}>
         <fieldset className="space-y-6 rounded-xl border border-slate-200 bg-slate-50/60 p-5">
           <legend className="px-1 text-sm font-semibold text-slate-800">
-            Project details
+            Project Details
           </legend>
           <div>
             <FieldLabel htmlFor="project-name" required>
-              Project name
+              Project Name
             </FieldLabel>
             <input
               className={inputClasses}
@@ -158,6 +277,7 @@ const AddProjects = () => {
               type="text"
               autoComplete="off"
               placeholder="e.g. Riverside Apartment"
+              defaultValue={project?.name || ''}
               required
               onChange={clearSubmissionMessage}
             />
@@ -172,24 +292,25 @@ const AddProjects = () => {
               name="description"
               rows="3"
               placeholder="A short overview of the project"
+              defaultValue={project?.description || ''}
               onChange={clearSubmissionMessage}
             />
           </div>
           <div className="grid gap-6 sm:grid-cols-2">
             <div>
               <FieldLabel htmlFor="project-type" required>
-                Project type
+                Project Type
               </FieldLabel>
               <select
                 className={inputClasses}
                 id="project-type"
                 name="projectType"
-                defaultValue=""
+                defaultValue={project?.project_type || ''}
                 required
                 onChange={clearSubmissionMessage}
               >
                 <option value="" disabled>
-                  Choose a project type
+                  Choose a Project Type
                 </option>
                 {projectTypes.map((type) => (
                   <option key={type} value={type}>
@@ -207,13 +328,13 @@ const AddProjects = () => {
                 className={inputClasses}
                 id="status"
                 name="status"
-                defaultValue=""
+                defaultValue={project?.status || ''}
                 onChange={clearSubmissionMessage}
               >
-                <option value="">Select a status</option>
+                <option value="">Select a Status</option>
                 {projectStatuses.map((status) => (
                   <option key={status} value={status}>
-                    {status}
+                    {capitalizeWords(status)}
                   </option>
                 ))}
               </select>
@@ -223,41 +344,44 @@ const AddProjects = () => {
 
         <fieldset className="rounded-xl border border-slate-200 bg-slate-50/60 p-5">
           <legend className="px-1 text-sm font-semibold text-slate-800">
-            Project dates
-            <span className="ml-1.5 font-normal text-slate-500">(optional)</span>
+            Project Dates
+            <span className="ml-1.5 font-normal text-slate-500">(Optional)</span>
           </legend>
           <div className="mt-3 grid gap-5 sm:grid-cols-3">
             <div>
-              <FieldLabel htmlFor="start-date">Start date</FieldLabel>
+              <FieldLabel htmlFor="start-date">Start Date</FieldLabel>
               <input
                 className={inputClasses}
                 id="start-date"
                 name="startDate"
                 type="date"
+                defaultValue={project?.start_date || ''}
                 onChange={clearSubmissionMessage}
               />
             </div>
             <div>
               <FieldLabel htmlFor="expected-completion-date">
-                Expected completion date
+                Expected Completion Date
               </FieldLabel>
               <input
                 className={inputClasses}
                 id="expected-completion-date"
                 name="expectedCompletionDate"
                 type="date"
+                defaultValue={project?.expected_completion_date || ''}
                 onChange={clearSubmissionMessage}
               />
             </div>
             <div>
               <FieldLabel htmlFor="actual-completion-date">
-                Actual completion date
+                Actual Completion Date
               </FieldLabel>
               <input
                 className={inputClasses}
                 id="actual-completion-date"
                 name="actualCompletionDate"
                 type="date"
+                defaultValue={project?.actual_completion_date || ''}
                 onChange={clearSubmissionMessage}
               />
             </div>
@@ -266,7 +390,7 @@ const AddProjects = () => {
 
         <fieldset className="space-y-6 rounded-xl border border-slate-200 bg-slate-50/60 p-5">
           <legend className="px-1 text-sm font-semibold text-slate-800">
-            Location and notes
+            Location And Notes
           </legend>
           <div>
             <FieldLabel htmlFor="address" optional>
@@ -278,13 +402,14 @@ const AddProjects = () => {
               name="address"
               rows="2"
               placeholder="Project site address"
+              defaultValue={project?.address || ''}
               onChange={clearSubmissionMessage}
             />
           </div>
 
           <div>
             <FieldLabel htmlFor="project-info" optional>
-              Project info
+              Project Info
             </FieldLabel>
             <textarea
               className={`${inputClasses} min-h-24 resize-y`}
@@ -292,6 +417,7 @@ const AddProjects = () => {
               name="projectInfo"
               rows="3"
               placeholder="Additional notes or information"
+              defaultValue={project?.project_info || ''}
               onChange={clearSubmissionMessage}
             />
           </div>
@@ -299,8 +425,8 @@ const AddProjects = () => {
 
         <fieldset className="rounded-xl border border-slate-200 bg-slate-50/60 p-5">
           <legend className="px-1 text-sm font-semibold text-slate-800">
-            Project images
-            <span className="ml-1.5 font-normal text-slate-500">(optional)</span>
+            Project Images
+            <span className="ml-1.5 font-normal text-slate-500">(Optional)</span>
           </legend>
           <p className="mt-1 text-sm text-slate-600">
             Choose JPEG, PNG, GIF, or WebP images up to 5 MB each. You can add up to
@@ -309,7 +435,7 @@ const AddProjects = () => {
           <div className="mt-5 grid gap-6 sm:grid-cols-2">
             <div>
               <FieldLabel htmlFor="cover-image" optional>
-                Cover image
+                Cover Image
               </FieldLabel>
               <input
                 className={inputClasses}
@@ -322,6 +448,24 @@ const AddProjects = () => {
                 aria-describedby={imageErrors.coverImage ? 'cover-image-error' : undefined}
                 onChange={validateImages('coverImage')}
               />
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                {!coverFile &&
+                  currentCover &&
+                  !removedImageUrls.includes(currentCover.image_url) && (
+                    <ImageThumbnail
+                      src={currentCover.image_url}
+                      alt="Current cover"
+                      removeLabel="Remove current cover"
+                      onRemove={() => removeExistingImage(currentCover.image_url)}
+                    />
+                  )}
+                {coverFile && (
+                  <TemporaryImageThumbnail
+                    file={coverFile}
+                    onRemove={removeCoverFile}
+                  />
+                )}
+              </div>
               {imageErrors.coverImage && (
                 <p
                   className="mt-2 text-sm text-red-700"
@@ -334,7 +478,7 @@ const AddProjects = () => {
             </div>
             <div>
               <FieldLabel htmlFor="other-images" optional>
-                Other images
+                Other Images
               </FieldLabel>
               <input
                 className={inputClasses}
@@ -346,8 +490,31 @@ const AddProjects = () => {
                 multiple
                 aria-invalid={Boolean(imageErrors.otherImages)}
                 aria-describedby={imageErrors.otherImages ? 'other-images-error' : undefined}
+                disabled={remainingOtherImageSlots <= 0}
                 onChange={validateImages('otherImages')}
               />
+              <ul className="mt-3 grid grid-cols-3 gap-2">
+                {otherExistingImages.map((image) =>
+                  removedImageUrls.includes(image.image_url) ? null : (
+                    <li key={image.image_url}>
+                      <ImageThumbnail
+                        src={image.image_url}
+                        alt={image.title || 'Project image'}
+                        removeLabel={`Remove ${image.title || 'project image'}`}
+                        onRemove={() => removeExistingImage(image.image_url)}
+                      />
+                    </li>
+                  )
+                )}
+                {otherFiles.map((file, index) => (
+                <li key={`${file.file.name}-${file.file.size}-${file.file.lastModified}-${index}`}>
+                    <TemporaryImageThumbnail
+                      file={file}
+                      onRemove={() => removeOtherFile(index)}
+                    />
+                  </li>
+                ))}
+              </ul>
               {imageErrors.otherImages && (
                 <p
                   className="mt-2 text-sm text-red-700"
@@ -363,14 +530,18 @@ const AddProjects = () => {
 
         <div className="flex flex-col-reverse gap-4 border-t border-slate-200 pt-6 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs text-slate-500">
-            Project details and selected images will be saved when you create the project.
+            Project details and selected images will be saved when you submit the form.
           </p>
           <button
             className="inline-flex min-h-11 items-center justify-center rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-700 focus:ring-offset-2 active:bg-blue-900"
             type="submit"
-            disabled={isLoading}
+            disabled={isSaving}
           >
-            {isLoading ? 'Saving project...' : 'Create project'}
+            {isSaving
+              ? 'Saving Project...'
+              : isEditing
+                ? 'Save Changes'
+                : 'Create Project'}
           </button>
         </div>
 

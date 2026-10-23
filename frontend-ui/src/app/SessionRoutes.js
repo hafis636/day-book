@@ -2,9 +2,17 @@ import React, { useEffect } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useGetCurrentSessionQuery } from '../redux/services/users/usersApi'
 import AuthenticatedLayout from './AuthenticatedLayout'
+import Unauthorized from '../pages/Unauthorized'
+import { normalizeRole } from '../menus/menuNames'
 
 const SessionLoading = () => (
-  <></>
+  <main className="grid min-h-screen place-items-center bg-slate-50">
+    <div
+      role="status"
+      aria-label="Loading session"
+      className="h-12 w-12 animate-spin rounded-full border-4 border-slate-200 border-t-blue-700"
+    />
+  </main>
 )
 
 export const HomeRedirect = () => {
@@ -15,7 +23,7 @@ export const HomeRedirect = () => {
   return <Navigate to={data?.user ? '/dashboard' : '/login'} replace />
 }
 
-export const ProtectedRoute = ({ children }) => {
+export const ProtectedRoute = ({ children, allowedRoles }) => {
   const { data, isLoading, refetch } = useGetCurrentSessionQuery(undefined, {
     refetchOnMountOrArgChange: true,
   })
@@ -38,8 +46,18 @@ export const ProtectedRoute = ({ children }) => {
     }
   }, [refetch])
 
-  if (isLoading) return null
-  return data?.user ? <AuthenticatedLayout>{children}</AuthenticatedLayout> : <Navigate to="/login" replace />
+  if (isLoading) return <SessionLoading />
+  if (!data?.user) return <Navigate to="/login" replace />
+
+  const hasAccess =
+    !allowedRoles ||
+    allowedRoles.map(normalizeRole).includes(normalizeRole(data.user.role))
+
+  return (
+    <AuthenticatedLayout>
+      {hasAccess ? children : <Unauthorized />}
+    </AuthenticatedLayout>
+  )
 }
 
 export const PublicOnlyRoute = ({ children }) => {

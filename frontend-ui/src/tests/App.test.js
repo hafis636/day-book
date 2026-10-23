@@ -14,6 +14,9 @@ const mockLoginUser = jest.fn();
 const mockGetRoles = jest.fn();
 const mockRegisterUser = jest.fn();
 const mockCreateProject = jest.fn();
+const mockGetProjects = jest.fn();
+const mockGetProject = jest.fn();
+const mockUpdateProject = jest.fn();
 
 jest.mock('../redux/services/users/usersApi', () => ({
   useLazyConfirmUserQuery: () => [mockCheckUserContact, { isFetching: false }],
@@ -24,6 +27,9 @@ jest.mock('../redux/services/users/usersApi', () => ({
   useGetCurrentSessionQuery: () => mockGetCurrentSession(),
   useLogoutMutation: () => [mockLogout, { isLoading: false }],
   useCreateProjectMutation: () => [mockCreateProject, { isLoading: false }],
+  useGetProjectsQuery: () => mockGetProjects(),
+  useGetProjectQuery: () => mockGetProject(),
+  useUpdateProjectMutation: () => [mockUpdateProject, { isLoading: false }],
 }));
 
 beforeEach(() => {
@@ -63,6 +69,45 @@ beforeEach(() => {
   });
   mockCreateProject.mockReset();
   mockCreateProject.mockReturnValue({
+    unwrap: () => Promise.resolve({ project: { id: 'project-1' } }),
+  });
+  mockGetProjects.mockReturnValue({
+    data: { projects: [] },
+    isLoading: false,
+    isError: false,
+  });
+  mockGetProject.mockReturnValue({
+    data: {
+      project: {
+        id: 'project-1',
+        name: 'harbor house',
+        description: 'A waterfront home',
+        project_type: 'Residential House',
+        status: 'Planning',
+        start_date: '2026-01-02',
+        expected_completion_date: '2026-12-15',
+        actual_completion_date: null,
+        address: '1 Harbor Road',
+        project_info: 'Phase one',
+        cover_image: 'https://example.com/harbor-house.jpg',
+        images: [
+          {
+            image_url: 'https://example.com/harbor-house.jpg',
+            title: 'Harbor cover',
+            is_cover: true,
+          },
+          {
+            image_url: 'https://example.com/harbor-detail.jpg',
+            title: 'Harbor detail',
+            is_cover: false,
+          },
+        ],
+      },
+    },
+    isLoading: false,
+    isError: false,
+  });
+  mockUpdateProject.mockReturnValue({
     unwrap: () => Promise.resolve({ project: { id: 'project-1' } }),
   });
 });
@@ -254,6 +299,18 @@ test('redirects the base URL to login when there is no session', () => {
   expect(screen.getByRole('heading', { name: /login/i })).toBeInTheDocument();
 });
 
+test('shows a centered loading indicator while the session is loading', () => {
+  mockGetCurrentSession.mockReturnValue({
+    data: undefined,
+    isLoading: true,
+    refetch: jest.fn(),
+  });
+  window.history.pushState({}, '', '/add-projects');
+  render(<App />);
+
+  expect(screen.getByRole('status', { name: /loading session/i })).toBeInTheDocument();
+});
+
 test('redirects the base URL to the dashboard when a session exists', () => {
   mockGetCurrentSession.mockReturnValue({
     data: {
@@ -348,6 +405,184 @@ test('renders the protected engineer add-projects route', () => {
   expect(screen.getByRole('link', { name: 'Manage Projects' })).toHaveAttribute('href', '/manage-projects');
   userEvent.click(screen.getByRole('link', { name: 'Manage Projects' }));
   expect(screen.getByRole('heading', { name: 'Manage Projects' })).toBeInTheDocument();
+});
+
+test('loads and displays the current user projects on the manage projects page', () => {
+  mockGetCurrentSession.mockReturnValue({
+    data: {
+      user: {
+        id: 'user-1',
+        first_name: 'Taylor',
+        last_name: 'Day',
+        email: 'taylor@example.com',
+        role: 'engineer',
+      },
+    },
+    isLoading: false,
+    refetch: jest.fn(),
+  });
+  mockGetProjects.mockReturnValue({
+    data: {
+      projects: [
+        {
+          id: 'project-1',
+          name: 'harbor house',
+          status: 'Planning',
+          project_type: 'Residential House',
+          cover_image: 'https://example.com/harbor-house.jpg',
+        },
+        {
+          id: 'project-2',
+          name: 'Garden Apartment',
+          status: 'Ongoing',
+          project_type: 'Apartment',
+          cover_image: 'https://example.com/apartment-first-image.jpg',
+        },
+        {
+          id: 'project-3',
+          name: 'Office Renovation',
+          status: 'In discussion',
+          project_type: 'Office',
+          cover_image: null,
+        },
+      ],
+    },
+    isLoading: false,
+    isError: false,
+  });
+  window.history.pushState({}, '', '/manage-projects');
+  render(<App />);
+
+  expect(mockGetProjects).toHaveBeenCalled();
+  expect(screen.getByRole('heading', { name: 'Harbor House' })).toBeInTheDocument();
+  expect(screen.getAllByText('Planning')).toHaveLength(2);
+  expect(screen.getAllByText('In Discussion')).toHaveLength(2);
+  expect(screen.getAllByText('Residential House')).toHaveLength(2);
+  expect(screen.getByRole('img', { name: 'Harbor House cover' })).toHaveAttribute(
+    'src',
+    'https://example.com/harbor-house.jpg'
+  );
+  expect(screen.getByRole('img', { name: 'Garden Apartment cover' })).toHaveAttribute(
+    'src',
+    'https://example.com/apartment-first-image.jpg'
+  );
+  expect(screen.getByRole('img', { name: 'Office Renovation cover' })).toHaveAttribute(
+    'src',
+    '/default-cover.jpg'
+  );
+  expect(screen.queryByRole('button', { name: 'Clear' })).not.toBeInTheDocument();
+
+  const statusSelect = screen.getByRole('combobox', { name: 'Status' });
+  const projectTypeSelect = screen.getByRole('combobox', {
+    name: 'Project Type',
+  });
+  expect(within(statusSelect).getByRole('option', { name: 'Status' })).toBeInTheDocument();
+  expect(
+    within(projectTypeSelect).getByRole('option', { name: 'Project Type' })
+  ).toBeInTheDocument();
+
+  userEvent.selectOptions(statusSelect, 'Ongoing');
+  expect(within(statusSelect).getByRole('option', { name: 'All' })).toBeInTheDocument();
+  userEvent.selectOptions(statusSelect, '');
+  expect(
+    within(statusSelect).getByRole('option', { name: 'Status' })
+  ).toBeInTheDocument();
+  userEvent.selectOptions(statusSelect, 'Ongoing');
+  expect(screen.getByRole('button', { name: 'Clear' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Garden Apartment' })).toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: 'Harbor House' })).not.toBeInTheDocument();
+
+  userEvent.selectOptions(
+    projectTypeSelect,
+    'Apartment'
+  );
+  expect(within(projectTypeSelect).getByRole('option', { name: 'All' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Garden Apartment' })).toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: 'Office Renovation' })).not.toBeInTheDocument();
+
+  userEvent.selectOptions(
+    projectTypeSelect,
+    'Office'
+  );
+  expect(screen.getByText(/no projects match the selected filters/i)).toBeInTheDocument();
+
+  userEvent.click(screen.getByRole('button', { name: 'Clear' }));
+  expect(statusSelect).toHaveValue('');
+  expect(projectTypeSelect).toHaveValue('');
+  expect(
+    within(statusSelect).getByRole('option', { name: 'Status' })
+  ).toBeInTheDocument();
+  expect(
+    within(projectTypeSelect).getByRole('option', { name: 'Project Type' })
+  ).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Office Renovation' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Harbor House' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Garden Apartment' })).toBeInTheDocument();
+  expect(
+    screen.queryByText(/no projects match the selected filters/i)
+  ).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Clear' })).not.toBeInTheDocument();
+
+  userEvent.click(screen.getByRole('link', { name: 'Edit Harbor House' }));
+  expect(screen.getByRole('heading', { name: 'Edit Project' })).toBeInTheDocument();
+  expect(screen.getByLabelText(/^Project Name/)).toHaveValue('harbor house');
+  expect(screen.getByLabelText(/^Project Type/)).toHaveValue('Residential House');
+  expect(screen.getByLabelText('Start Date')).toHaveValue('2026-01-02');
+  expect(screen.getByRole('img', { name: 'Current cover' })).toBeInTheDocument();
+  expect(screen.getByRole('img', { name: 'Harbor detail' })).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText(/^Cover Image/), {
+    target: { files: [new File(['cover'], 'new-cover.jpg', { type: 'image/jpeg' })] },
+  });
+  expect(screen.getByRole('button', { name: 'Remove Harbor detail' })).toHaveAttribute(
+    'title',
+    'Remove'
+  );
+  userEvent.click(screen.getByRole('button', { name: 'Remove Harbor detail' }));
+  expect(screen.queryByRole('img', { name: 'Harbor detail' })).not.toBeInTheDocument();
+
+  fireEvent.change(screen.getByLabelText(/^Project Name/), {
+    target: { value: 'Updated Harbor House' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+  expect(mockUpdateProject).toHaveBeenCalledWith({
+    id: 'project-1',
+    formData: expect.any(FormData),
+  });
+  const updateFormData = mockUpdateProject.mock.calls[0][0].formData;
+  expect(updateFormData.get('name')).toBe('Updated Harbor House');
+  expect(updateFormData.get('project_type')).toBe('Residential House');
+  expect(updateFormData.get('status')).toBe('Planning');
+  expect(updateFormData.get('coverImage')).toBeInstanceOf(File);
+  expect(updateFormData.get('removeImageUrls')).toBe(
+    JSON.stringify(['https://example.com/harbor-detail.jpg'])
+  );
+});
+
+test('shows an unauthorized page when an admin visits add-project', () => {
+  mockGetCurrentSession.mockReturnValue({
+    data: {
+      user: {
+        id: 'user-1',
+        first_name: 'Taylor',
+        last_name: 'Day',
+        email: 'taylor@example.com',
+        role: 'admin',
+      },
+    },
+    isLoading: false,
+    refetch: jest.fn(),
+  });
+  window.history.pushState({}, '', '/add-project');
+  render(<App />);
+
+  expect(
+    screen.getByRole('heading', { name: /you don’t have permission to view this page/i })
+  ).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: /return to dashboard/i })).toHaveAttribute(
+    'href',
+    '/dashboard'
+  );
+  expect(screen.queryByRole('heading', { name: /add projects/i })).not.toBeInTheDocument();
 });
 
 test('redirects unauthenticated dashboard visits to login', () => {

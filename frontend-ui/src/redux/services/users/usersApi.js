@@ -60,6 +60,22 @@ export const usersApi = createApi({
       }),
       invalidatesTags: ["Project"],
     }),
+    getProjects: builder.query({
+      query: () => "/projects",
+      providesTags: ["Project"],
+    }),
+    getProject: builder.query({
+      query: (id) => `/projects/${id}`,
+      providesTags: ["Project"],
+    }),
+    updateProject: builder.mutation({
+      query: ({ id, formData }) => ({
+        url: `/projects/${id}`,
+        method: "PATCH",
+        body: formData,
+      }),
+      invalidatesTags: ["Project"],
+    }),
   }),
 });
 
@@ -72,4 +88,7 @@ export const {
   useGetCurrentSessionQuery,
   useLogoutMutation,
   useCreateProjectMutation,
+  useGetProjectsQuery,
+  useGetProjectQuery,
+  useUpdateProjectMutation,
 } = usersApi;
