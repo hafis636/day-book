@@ -4,6 +4,7 @@ const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 const corsOptions = require('./config/cors');
 const routes = require('./routes');
+const rejectBrowserNavigation = require('./middleware/rejectBrowserNavigation');
 
 const app = express();
 
@@ -14,6 +15,6 @@ app.get('/', (req, res) => {
   res.sendStatus(404);
 });
 
-app.use('/api', routes);
+app.use('/api', rejectBrowserNavigation, routes);
 
 module.exports = app;
