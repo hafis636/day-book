@@ -6,6 +6,7 @@ import Dashboard from "../pages/dashboard";
 import AddProjects from "../pages/dashboard/engineer/AddProjects";
 import ManageProjects from "../pages/dashboard/engineer/ManageProjects";
 import EditProject from "../pages/dashboard/engineer/EditProject";
+import ProjectSectionPage from "../pages/dashboard/engineer/ProjectSectionPage";
 import { HomeRedirect, ProtectedRoute, PublicOnlyRoute } from "./SessionRoutes";
 import './App.css';
 
@@ -20,6 +21,7 @@ function App() {
         <Route path="/add-projects" element={<ProtectedRoute allowedRoles={['engineer']}><AddProjects /></ProtectedRoute>} />
         <Route path="/manage-projects" element={<ProtectedRoute allowedRoles={['engineer']}><ManageProjects /></ProtectedRoute>} />
         <Route path="/manage-projects/:projectId" element={<ProtectedRoute allowedRoles={['engineer']}><EditProject /></ProtectedRoute>} />
+        <Route path="/manage-projects/:projectId/:section" element={<ProtectedRoute allowedRoles={['engineer']}><ProjectSectionPage /></ProtectedRoute>} />
         <Route path="/register" element={<Register />} />
         <Route path="/about" element={<About />} />
         

@@ -18,7 +18,11 @@ beforeEach(() => {
 test('renders required project fields and optional project details', () => {
   render(<AddProjects />)
 
-  expect(screen.getByRole('heading', { name: 'Add Projects' })).toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: 'Add Project' })).toBeInTheDocument()
+  const projectFormCard = screen.getByRole('heading', { name: 'Add Project' }).closest('section')
+  expect(projectFormCard).toHaveClass('w-full')
+  expect(projectFormCard).not.toHaveClass('max-w-4xl')
+  expect(projectFormCard).not.toHaveClass('mx-auto')
   expect(screen.getByLabelText(/^Project Name/)).toBeRequired()
   expect(screen.getByLabelText(/^Project Type/)).toBeRequired()
   expect(screen.getByLabelText(/^Description/)).not.toBeRequired()

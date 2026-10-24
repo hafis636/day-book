@@ -1,5 +1,6 @@
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import AddProjects from './AddProjects'
+import ProjectWorkspaceLayout, { ProjectBackLink } from './ProjectWorkspaceLayout'
 import {
   useGetProjectQuery,
   useUpdateProjectMutation,
@@ -27,29 +28,20 @@ const EditProject = () => {
 
   if (isError || !project) {
     return (
-      <section className="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-slate-200">
-        <h1 className="text-2xl font-bold text-slate-900">Project Not Found</h1>
-        <p className="mt-3 text-slate-600">
-          This project could not be loaded. It may have been removed or you may not have access.
-        </p>
-        <Link
-          to="/manage-projects"
-          className="mt-5 inline-flex font-semibold text-blue-700 hover:text-blue-800"
-        >
-          Back To Manage Projects
-        </Link>
-      </section>
+      <ProjectWorkspaceLayout projectId={projectId} projectName={project?.name}>
+        <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+          <ProjectBackLink />
+          <h1 className="text-2xl font-bold text-slate-900">Project Not Found</h1>
+          <p className="mt-3 text-slate-600">
+            This project could not be loaded. It may have been removed or you may not have access.
+          </p>
+        </section>
+      </ProjectWorkspaceLayout>
     )
   }
 
   return (
-    <>
-      <Link
-        to="/manage-projects"
-        className="mb-5 inline-flex text-sm font-semibold text-blue-700 hover:text-blue-800"
-      >
-        Back To Manage Projects
-      </Link>
+    <ProjectWorkspaceLayout projectId={projectId}>
       <AddProjects
         key={project.id}
         project={project}
@@ -57,7 +49,7 @@ const EditProject = () => {
         onSubmitProject={handleSubmit}
         isSaving={isSaving}
       />
-    </>
+    </ProjectWorkspaceLayout>
   )
 }
 

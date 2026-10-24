@@ -359,12 +359,51 @@ test('opens role-specific left and top menus on the dashboard', () => {
 
     const leftMenuToggle = screen.getByRole('button', { name: /open navigation menu/i });
     expect(leftMenuToggle).toHaveAttribute('aria-controls', 'engineer-left-menu');
+    const mainContent = screen.getByRole('main');
+    const headerContent = screen.getByRole('group', { name: 'Page header content' });
+    const headerSidebarSpacer = headerContent.previousElementSibling;
+    expect(headerContent.parentElement).toHaveClass('mx-auto', 'w-full', 'max-w-[1600px]');
+    expect(headerContent).toHaveClass('min-w-0', 'flex-1', 'px-4', 'sm:px-6', 'lg:px-8');
+    expect(headerSidebarSpacer).toHaveClass('shrink-0', 'lg:w-0');
+    expect(mainContent.parentElement).toHaveClass('mx-auto', 'w-full', 'max-w-[1600px]');
+    expect(mainContent).toHaveClass('px-4', 'sm:px-6', 'lg:px-8');
+    const leftMenu = document.getElementById('engineer-left-menu');
+    expect(leftMenu).toHaveClass(
+      'fixed',
+      'w-60',
+      'lg:static',
+      'lg:shrink-0',
+      'overflow-hidden',
+      'lg:w-0',
+      'lg:border-r-0',
+      'lg:p-0'
+    );
+    expect(leftMenu).toHaveAttribute('aria-hidden', 'true');
+    expect(leftMenu).toHaveAttribute('inert');
+    expect(screen.queryByRole('navigation', { name: 'engineer-left-menu' })).not.toBeInTheDocument();
+    expect(mainContent).toHaveClass('min-w-0', 'flex-1');
+    expect(screen.queryByRole('button', { name: 'Close navigation menu' })).not.toBeInTheDocument();
     userEvent.click(leftMenuToggle);
+    const topMenuToggle = screen.getByRole('button', { name: /taylor day/i });
     expect(screen.getByRole('navigation', { name: 'engineer-left-menu' })).toBeVisible();
+    expect(leftMenu).toHaveAttribute('aria-hidden', 'false');
+    expect(leftMenu).not.toHaveAttribute('inert');
+    expect(leftMenu).toHaveClass('overflow-y-auto', 'lg:w-60');
+    expect(headerSidebarSpacer).toHaveClass('shrink-0', 'lg:w-0');
+    expect(topMenuToggle.parentElement.parentElement).toBe(headerContent);
+    const closeDrawer = screen.getByRole('button', { name: 'Close navigation menu' });
+    expect(closeDrawer).toHaveClass('fixed', 'inset-0', 'lg:hidden');
+    expect(mainContent).toHaveClass('min-w-0', 'flex-1');
     expect(screen.getByRole('link', { name: 'Work logs' })).toHaveAttribute('href', '/dashboard');
     expect(screen.queryByRole('link', { name: 'Dashboard' })).not.toBeInTheDocument();
+    userEvent.click(closeDrawer);
+    expect(screen.queryByRole('navigation', { name: 'engineer-left-menu' })).not.toBeInTheDocument();
+    expect(leftMenu).toHaveAttribute('aria-hidden', 'true');
+    expect(leftMenu).toHaveAttribute('inert');
+    expect(leftMenu).toHaveClass('overflow-hidden', 'lg:w-0', 'lg:border-r-0', 'lg:p-0');
+    expect(screen.queryByRole('button', { name: 'Close navigation menu' })).not.toBeInTheDocument();
 
-    userEvent.click(screen.getByRole('button', { name: /taylor day/i }));
+    userEvent.click(topMenuToggle);
     const topMenu = screen.getByRole('menu');
     expect(topMenu).toHaveAttribute('id', 'engineer-top-menu');
     expect(within(topMenu).getByRole('menuitem', { name: 'Help' })).toHaveAttribute('href', '/about');
@@ -405,6 +444,185 @@ test('renders the protected engineer add-projects route', () => {
   expect(screen.getByRole('link', { name: 'Manage Projects' })).toHaveAttribute('href', '/manage-projects');
   userEvent.click(screen.getByRole('link', { name: 'Manage Projects' }));
   expect(screen.getByRole('heading', { name: 'Manage Projects' })).toBeInTheDocument();
+});
+
+test('renders project-scoped section placeholders with responsive project navigation', () => {
+  mockGetCurrentSession.mockReturnValue({
+    data: {
+      user: {
+        id: 'user-1',
+        first_name: 'Taylor',
+        last_name: 'Day',
+        email: 'taylor@example.com',
+        role: 'engineer',
+      },
+    },
+    isLoading: false,
+    refetch: jest.fn(),
+  });
+  window.history.pushState({}, '', '/manage-projects/project-1/documents');
+  render(<App />);
+
+  expect(screen.getByRole('heading', { name: 'Documents' })).toBeInTheDocument();
+  expect(screen.getByText(/this section is coming soon/i)).toBeInTheDocument();
+  const projectSummary = screen.getByRole('region', { name: 'Project summary' });
+  expect(within(projectSummary).getByRole('heading', { name: 'harbor house' })).toBeInTheDocument();
+  expect(within(projectSummary).getByText('Project type')).toBeInTheDocument();
+  expect(within(projectSummary).getByText('Residential House')).toBeInTheDocument();
+  expect(within(projectSummary).getByText('Status')).toBeInTheDocument();
+  expect(within(projectSummary).getByText('Planning')).toBeInTheDocument();
+  expect(screen.getByText('Swipe to see more')).toBeInTheDocument();
+  const projectBackLink = screen.getByRole('link', { name: 'Projects' });
+  expect(projectBackLink).toHaveAttribute(
+    'href',
+    '/manage-projects'
+  );
+  expect(projectBackLink.closest('section')).toContainElement(
+    screen.getByRole('heading', { name: 'Documents' })
+  );
+
+  const sectionNavigation = screen.getByRole('navigation', { name: 'Sections' });
+  const editProjectLink = within(sectionNavigation).getByRole('link', { name: 'Edit Project' });
+  expect(editProjectLink).toHaveAttribute('href', '/manage-projects/project-1');
+  const projectLinks = within(sectionNavigation).getAllByRole('link');
+  expect(projectLinks[0]).toBe(editProjectLink);
+  expect(projectLinks.map((link) => link.textContent)).toEqual([
+    'Edit Project',
+    'Documents',
+    'Payments',
+    'Expenditure',
+    'Project Progress',
+    'Labour Details',
+    'Work Planning',
+    'Material Details',
+  ]);
+  const workspace = screen.getByRole('region', { name: 'Project workspace' });
+  const projectCard = screen.getByRole('heading', { name: 'Documents' }).closest('section');
+  const mainContent = screen.getByRole('main');
+  const headerContent = screen.getByRole('group', { name: 'Page header content' });
+  const projectLinkScroller = sectionNavigation.lastElementChild;
+  expect(headerContent).toHaveClass('px-4', 'sm:px-6', 'lg:px-8');
+  expect(mainContent).toHaveClass('px-4', 'sm:px-6', 'lg:px-8');
+  expect(projectCard).toHaveClass('w-full');
+  expect(projectSummary.compareDocumentPosition(projectCard) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(projectLinkScroller).toHaveClass('overflow-x-auto', 'lg:flex-col');
+  expect(mainContent).toHaveClass('min-w-0', 'flex-1');
+  expect(sectionNavigation).toHaveClass(
+    'sticky',
+    'top-0',
+    'lg:top-4',
+    'lg:col-start-2',
+    'lg:row-start-1',
+    'rounded-lg',
+    'border-slate-200',
+    'bg-white',
+    'shadow-sm'
+  );
+  expect(sectionNavigation).not.toHaveClass('fixed');
+  expect(workspace).toHaveClass(
+    'grid',
+    'items-start',
+    'lg:grid-cols-[minmax(0,1fr)_14rem]'
+  );
+  expect(workspace).not.toHaveClass('min-h-full');
+  expect(sectionNavigation.parentElement).toBe(workspace);
+  expect(workspace).toContainElement(projectCard);
+  expect(projectCard).not.toBe(workspace);
+  expect(
+    sectionNavigation.compareDocumentPosition(
+      screen.getByRole('heading', { name: 'Documents' })
+    ) & Node.DOCUMENT_POSITION_FOLLOWING
+  ).toBeTruthy();
+  expect(projectLinks).toHaveLength(8);
+  expect(projectLinks[1]).toHaveClass('bg-blue-50', 'text-blue-700');
+  expect(projectLinks[2]).toHaveClass('hover:bg-slate-100');
+  userEvent.click(screen.getByRole('button', { name: /open navigation menu/i }));
+  expect(screen.getByRole('navigation', { name: 'engineer-left-menu' })).toBeVisible();
+  const leftMenu = document.getElementById('engineer-left-menu');
+  expect(leftMenu).toHaveAttribute('aria-hidden', 'false');
+  expect(leftMenu).not.toHaveAttribute('inert');
+  expect(screen.getByRole('button', { name: 'Close navigation menu' })).toBeInTheDocument();
+  expect(mainContent).toHaveClass('min-w-0', 'flex-1');
+  expect(projectLinkScroller).toHaveClass('overflow-x-auto');
+  userEvent.click(screen.getByRole('button', { name: 'Close navigation menu' }));
+  expect(screen.queryByRole('navigation', { name: 'engineer-left-menu' })).not.toBeInTheDocument();
+  expect(leftMenu).toHaveAttribute('aria-hidden', 'true');
+  expect(leftMenu).toHaveAttribute('inert');
+  expect(within(sectionNavigation).getByRole('link', { name: 'Documents' })).toHaveAttribute(
+    'aria-current',
+    'page'
+  );
+  const projectSectionRoutes = [
+    ['Documents', 'documents'],
+    ['Payments', 'payments'],
+    ['Expenditure', 'expenditure'],
+    ['Project Progress', 'project-progress'],
+    ['Labour Details', 'labour-details'],
+    ['Work Planning', 'work-planning'],
+    ['Material Details', 'material-details'],
+  ];
+  projectSectionRoutes.forEach(([label, path]) => {
+    const sectionLink = within(sectionNavigation).getByRole('link', { name: label });
+    expect(sectionLink).toHaveAttribute('href', `/manage-projects/project-1/${path}`);
+    userEvent.click(sectionLink);
+    expect(screen.getByRole('heading', { name: label })).toBeInTheDocument();
+    expect(within(projectSummary).getByText('Residential House')).toBeInTheDocument();
+    expect(within(projectSummary).getByText('Planning')).toBeInTheDocument();
+    expect(editProjectLink).toHaveAttribute('href', '/manage-projects/project-1');
+  });
+});
+
+test('shows Edit Project first in section navigation while a project section is loading', () => {
+  mockGetCurrentSession.mockReturnValue({
+    data: {
+      user: {
+        id: 'user-1',
+        first_name: 'Taylor',
+        last_name: 'Day',
+        email: 'taylor@example.com',
+        role: 'engineer',
+      },
+    },
+    isLoading: false,
+    refetch: jest.fn(),
+  });
+  mockGetProject.mockReturnValue({
+    data: undefined,
+    isLoading: true,
+    isError: false,
+  });
+  window.history.pushState({}, '', '/manage-projects/project-1/documents');
+  render(<App />);
+
+  const sectionNavigation = screen.getByRole('navigation', { name: 'Sections' });
+  const projectLinks = within(sectionNavigation).getAllByRole('link');
+  expect(projectLinks[0]).toHaveTextContent('Edit Project');
+  expect(projectLinks[0]).toHaveAttribute('href', '/manage-projects/project-1');
+  expect(projectLinks[1]).toHaveTextContent('Documents');
+  expect(screen.getByRole('status', { name: 'Loading project' })).toBeInTheDocument();
+});
+
+test('restricts project-scoped sections to engineers', () => {
+  mockGetCurrentSession.mockReturnValue({
+    data: {
+      user: {
+        id: 'user-1',
+        first_name: 'Taylor',
+        last_name: 'Day',
+        email: 'taylor@example.com',
+        role: 'admin',
+      },
+    },
+    isLoading: false,
+    refetch: jest.fn(),
+  });
+  window.history.pushState({}, '', '/manage-projects/project-1/material-details');
+  render(<App />);
+
+  expect(
+    screen.getByRole('heading', { name: /permission to view this page/i })
+  ).toBeInTheDocument();
+  expect(screen.queryByRole('navigation', { name: 'Sections' })).not.toBeInTheDocument();
 });
 
 test('loads and displays the current user projects on the manage projects page', () => {
@@ -525,6 +743,33 @@ test('loads and displays the current user projects on the manage projects page',
 
   userEvent.click(screen.getByRole('link', { name: 'Edit Harbor House' }));
   expect(screen.getByRole('heading', { name: 'Edit Project' })).toBeInTheDocument();
+  const projectBackLink = screen.getByRole('link', { name: 'Projects' });
+  expect(projectBackLink).toHaveAttribute(
+    'href',
+    '/manage-projects'
+  );
+  expect(projectBackLink.closest('section')).toContainElement(
+    screen.getByRole('heading', { name: 'Edit Project' })
+  );
+  const sectionNavigation = screen.getByRole('navigation', { name: 'Sections' });
+  expect(
+    within(sectionNavigation).queryByRole('link', { name: 'Edit Project' })
+  ).not.toBeInTheDocument();
+  const workspace = screen.getByRole('region', { name: 'Project workspace' });
+  expect(sectionNavigation).toHaveClass(
+    'sticky',
+    'top-0',
+    'lg:top-4',
+    'lg:col-start-2',
+    'lg:row-start-1'
+  );
+  expect(sectionNavigation.parentElement).toBe(workspace);
+  expect(workspace).not.toHaveClass('min-h-full');
+  expect(
+    sectionNavigation.compareDocumentPosition(
+      screen.getByRole('heading', { name: 'Edit Project' })
+    ) & Node.DOCUMENT_POSITION_FOLLOWING
+  ).toBeTruthy();
   expect(screen.getByLabelText(/^Project Name/)).toHaveValue('harbor house');
   expect(screen.getByLabelText(/^Project Type/)).toHaveValue('Residential House');
   expect(screen.getByLabelText('Start Date')).toHaveValue('2026-01-02');

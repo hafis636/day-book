@@ -57,9 +57,9 @@ const createProject = async (engineerId, project, files) => {
       uploadedImages.push(storedImage);
       const title = image.file.originalname.replace(/\\/g, '/').split('/').pop().slice(0, 255);
       await client.query(
-        `INSERT INTO "daybook-dev-db".project_images
-           (project_id, image_url, title, description, display_order, is_cover, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+        `INSERT INTO "daybook-dev-db".project_documents
+           (project_id, file_path, file_type, title, description, display_order, is_cover, created_at)
+         VALUES ($1, $2, 'images', $3, $4, $5, $6, NOW())`,
         [projectId, storedImage.imageUrl, title, null, image.displayOrder, image.isCover]
       );
     }
@@ -92,19 +92,19 @@ const createProject = async (engineerId, project, files) => {
 const getProjectsForUser = async (userId) => {
   const result = await pool.query(
     `SELECT p.id, p.name, p.project_type, p.status,
-            COALESCE(cover.image_url, first_other.image_url) AS cover_image
+            COALESCE(cover.file_path, first_other.file_path) AS cover_image
      FROM "daybook-dev-db".projects AS p
      LEFT JOIN LATERAL (
-       SELECT image_url
-       FROM "daybook-dev-db".project_images
-       WHERE project_id = p.id AND is_cover = TRUE
+       SELECT file_path
+       FROM "daybook-dev-db".project_documents
+       WHERE project_id = p.id AND file_type = 'images' AND is_cover = TRUE
        ORDER BY display_order ASC, created_at ASC
        LIMIT 1
      ) AS cover ON TRUE
      LEFT JOIN LATERAL (
-       SELECT image_url
-       FROM "daybook-dev-db".project_images
-       WHERE project_id = p.id AND is_cover IS NOT TRUE
+       SELECT file_path
+       FROM "daybook-dev-db".project_documents
+       WHERE project_id = p.id AND file_type = 'images' AND is_cover IS NOT TRUE
        ORDER BY display_order ASC, created_at ASC
        LIMIT 1
      ) AS first_other ON TRUE
@@ -125,19 +125,19 @@ const getProjectForUser = async (userId, projectId) => {
     `SELECT p.id, p.name, p.description, p.project_type, p.status,
             p.start_date, p.expected_completion_date, p.actual_completion_date,
             p.address, p.project_info,
-            COALESCE(cover.image_url, first_other.image_url) AS cover_image
+            COALESCE(cover.file_path, first_other.file_path) AS cover_image
      FROM "daybook-dev-db".projects AS p
      LEFT JOIN LATERAL (
-       SELECT image_url
-       FROM "daybook-dev-db".project_images
-       WHERE project_id = p.id AND is_cover = TRUE
+       SELECT file_path
+       FROM "daybook-dev-db".project_documents
+       WHERE project_id = p.id AND file_type = 'images' AND is_cover = TRUE
        ORDER BY display_order ASC, created_at ASC
        LIMIT 1
      ) AS cover ON TRUE
      LEFT JOIN LATERAL (
-       SELECT image_url
-       FROM "daybook-dev-db".project_images
-       WHERE project_id = p.id AND is_cover IS NOT TRUE
+       SELECT file_path
+       FROM "daybook-dev-db".project_documents
+       WHERE project_id = p.id AND file_type = 'images' AND is_cover IS NOT TRUE
        ORDER BY display_order ASC, created_at ASC
        LIMIT 1
      ) AS first_other ON TRUE
@@ -148,9 +148,9 @@ const getProjectForUser = async (userId, projectId) => {
   const project = result.rows[0];
   if (!project) return null;
   const imagesResult = await pool.query(
-    `SELECT image_url, title, is_cover, display_order
-     FROM "daybook-dev-db".project_images
-     WHERE project_id = $1
+    `SELECT file_path AS image_url, title, is_cover, display_order
+     FROM "daybook-dev-db".project_documents
+     WHERE project_id = $1 AND file_type = 'images'
      ORDER BY display_order ASC, created_at ASC`,
     [projectId]
   );
@@ -194,9 +194,9 @@ const updateProjectForUser = async (userId, projectId, project, files, removeIma
     }
 
     const currentImagesResult = await client.query(
-      `SELECT image_url, is_cover, display_order
-       FROM "daybook-dev-db".project_images
-       WHERE project_id = $1
+      `SELECT file_path, is_cover, display_order
+       FROM "daybook-dev-db".project_documents
+       WHERE project_id = $1 AND file_type = 'images'
        FOR UPDATE`,
       [projectId]
     );
@@ -206,11 +206,11 @@ const updateProjectForUser = async (userId, projectId, project, files, removeIma
     if (coverFile) {
       currentImages
         .filter((image) => image.is_cover === true)
-        .forEach((image) => imageUrlsToRemove.add(toPublicImageUrl(image.image_url)));
+        .forEach((image) => imageUrlsToRemove.add(toPublicImageUrl(image.file_path)));
     }
 
     const imagesToRemove = currentImages.filter((image) =>
-      imageUrlsToRemove.has(toPublicImageUrl(image.image_url))
+      imageUrlsToRemove.has(toPublicImageUrl(image.file_path))
     );
     if (imagesToRemove.length !== imageUrlsToRemove.size) {
       const error = new Error('One or more selected images do not belong to this project');
@@ -219,7 +219,9 @@ const updateProjectForUser = async (userId, projectId, project, files, removeIma
     }
 
     const remainingOtherImages = currentImages.filter(
-      (image) => !imageUrlsToRemove.has(image.image_url) && image.is_cover !== true
+      (image) =>
+        !imageUrlsToRemove.has(toPublicImageUrl(image.file_path)) &&
+        image.is_cover !== true
     );
     const newOtherImages = files.otherImages || [];
     if (remainingOtherImages.length + newOtherImages.length > 10) {
@@ -252,9 +254,9 @@ const updateProjectForUser = async (userId, projectId, project, files, removeIma
 
     if (imagesToRemove.length) {
       await client.query(
-        `DELETE FROM "daybook-dev-db".project_images
-         WHERE project_id = $1 AND image_url = ANY($2::text[])`,
-        [projectId, imagesToRemove.map((image) => image.image_url)]
+        `DELETE FROM "daybook-dev-db".project_documents
+         WHERE project_id = $1 AND file_type = 'images' AND file_path = ANY($2::text[])`,
+        [projectId, imagesToRemove.map((image) => image.file_path)]
       );
     }
 
@@ -271,9 +273,9 @@ const updateProjectForUser = async (userId, projectId, project, files, removeIma
       uploadedImages.push(storedImage);
       const title = image.file.originalname.replace(/\\/g, '/').split('/').pop().slice(0, 255);
       await client.query(
-        `INSERT INTO "daybook-dev-db".project_images
-           (project_id, image_url, title, description, display_order, is_cover, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+        `INSERT INTO "daybook-dev-db".project_documents
+           (project_id, file_path, file_type, title, description, display_order, is_cover, created_at)
+         VALUES ($1, $2, 'images', $3, $4, $5, $6, NOW())`,
         [projectId, storedImage.imageUrl, title, null, image.displayOrder, image.isCover]
       );
     }
@@ -283,7 +285,7 @@ const updateProjectForUser = async (userId, projectId, project, files, removeIma
 
     for (const image of imagesToRemove) {
       try {
-        await deleteProjectImageByUrl(image.image_url);
+        await deleteProjectImageByUrl(image.file_path);
       } catch (error) {
         console.error('Failed to delete removed project image from storage:', error);
         const cleanupError = new Error(

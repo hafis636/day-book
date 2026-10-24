@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useCreateProjectMutation } from '../../../redux/services/users/usersApi'
+import { ProjectBackLink } from './ProjectWorkspaceLayout'
 
 const projectTypes = [
   'Residential House',
@@ -247,13 +248,14 @@ const AddProjects = ({
     otherFiles.length
 
   return (
-    <section className="mx-auto max-w-4xl overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
+    <section className="w-full overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
       <header className="border-b border-slate-200 px-6 py-6 sm:px-8">
+        {isEditing && <ProjectBackLink />}
         <p className="text-xs font-bold uppercase tracking-[0.14em] text-blue-700">
           Project Setup
         </p>
         <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-          {isEditing ? 'Edit Project' : 'Add Projects'}
+          {isEditing ? 'Edit Project' : 'Add Project'}
         </h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
           Add the key details for a project. Fields marked with an asterisk are

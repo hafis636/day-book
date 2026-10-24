@@ -11,7 +11,7 @@ export const LeftMenuToggle = ({ role, open, onToggle }) => {
       type="button"
       aria-controls={menuId}
       aria-expanded={open}
-      aria-label={open ? 'Close navigation menu' : 'Open navigation menu'}
+      aria-label={open ? 'Close navigation menu panel' : 'Open navigation menu'}
       onClick={onToggle}
       className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
     >
@@ -38,8 +38,18 @@ const LeftMenu = ({ role, open }) => {
   return (
     <aside
       id={menuId}
-      hidden={!open}
-      className="w-60 shrink-0 border-r border-slate-200 bg-white p-4"
+      aria-hidden={!open}
+      inert={!open}
+      style={{
+        opacity: open ? 1 : 0,
+        pointerEvents: open ? 'auto' : 'none',
+        transform: open ? 'translateX(0)' : 'translateX(-100%)',
+      }}
+      className={`fixed bottom-0 left-0 top-[4.5rem] z-40 w-60 border-r border-slate-200 bg-white p-4 shadow-xl transition-[transform,width,padding] duration-200 ease-out lg:static lg:z-auto lg:h-auto lg:translate-x-0 lg:opacity-100 lg:visible lg:shadow-none lg:shrink-0 ${
+        open
+          ? 'overflow-y-auto lg:w-60'
+          : 'overflow-hidden lg:w-0 lg:border-r-0 lg:p-0'
+      }`}
     >
       <nav aria-label={menuId}>
         {menuItems.map((item) => {
@@ -49,7 +59,7 @@ const LeftMenu = ({ role, open }) => {
                 key={`${item.label}-${item.path}`}
                 to={item.path}
                 className={({ isActive }) =>
-                  `mb-1 block rounded-lg px-3 py-2 text-sm font-medium ${
+                  `mb-1 block rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                     isActive
                       ? 'bg-blue-50 text-blue-700'
                       : 'text-slate-700 hover:bg-slate-100'
@@ -75,7 +85,7 @@ const LeftMenu = ({ role, open }) => {
                     [item.label]: !current[item.label]
                   }))
                 }
-                className={`mb-1 flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm font-medium ${
+                className={`mb-1 flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors ${
                   hasActiveChild
                     ? 'bg-blue-50 text-blue-700'
                     : 'text-slate-700 hover:bg-slate-100'
@@ -91,7 +101,7 @@ const LeftMenu = ({ role, open }) => {
                       key={`${child.label}-${child.path}`}
                       to={child.path}
                       className={({ isActive }) =>
-                        `mb-1 block rounded-lg px-3 py-2 text-sm font-medium ${
+                        `mb-1 block rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                           isActive
                             ? 'bg-blue-50 text-blue-700'
                             : 'text-slate-700 hover:bg-slate-100'
