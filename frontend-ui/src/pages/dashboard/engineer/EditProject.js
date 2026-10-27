@@ -1,5 +1,5 @@
 import { useNavigate, useParams } from 'react-router-dom'
-import AddProjects from './AddProjects'
+import AddProjectForm from './forms/AddProjectForm'
 import ProjectWorkspaceLayout, { ProjectBackLink } from './ProjectWorkspaceLayout'
 import {
   useGetProjectQuery,
@@ -42,7 +42,7 @@ const EditProject = () => {
 
   return (
     <ProjectWorkspaceLayout projectId={projectId}>
-      <AddProjects
+      <AddProjectForm
         key={project.id}
         project={project}
         existingImages={project.images || []}

@@ -8,12 +8,17 @@ const {
 } = require('../controllers/sessionController');
 const {
   createProject,
+  createProjectDocuments,
+  getProjectDocuments,
   getProject,
   getProjects,
+  parseProjectDocuments,
   parseProjectImages,
   updateProject,
 } = require('../controllers/projectsController');
 const requireAuthenticatedSession = require('../middleware/requireAuthenticatedSession');
+const requireNonAdmin = require('../middleware/requireNonAdmin');
+const { getPlans, selectPlan } = require('../controllers/plansController');
 
 const router = express.Router();
 
@@ -24,6 +29,8 @@ router.get('/otp/confirm-user', confirmUser);
 router.post('/otp/validate', validateUserOtp, createSessionForAuthenticatedUser);
 router.get('/session', getCurrentSession);
 router.post('/session/logout', logout);
+router.get('/plans', requireAuthenticatedSession, requireNonAdmin, getPlans);
+router.patch('/plans/:planCode', requireAuthenticatedSession, requireNonAdmin, selectPlan);
 router.post(
   '/projects',
   requireAuthenticatedSession,
@@ -31,6 +38,13 @@ router.post(
   createProject
 );
 router.get('/projects', requireAuthenticatedSession, getProjects);
+router.get('/projects/:id/documents', requireAuthenticatedSession, getProjectDocuments);
+router.post(
+  '/projects/:id/documents',
+  requireAuthenticatedSession,
+  parseProjectDocuments,
+  createProjectDocuments
+);
 router.get('/projects/:id', requireAuthenticatedSession, getProject);
 router.patch(
   '/projects/:id',

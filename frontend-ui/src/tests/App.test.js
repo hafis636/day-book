@@ -16,7 +16,9 @@ const mockRegisterUser = jest.fn();
 const mockCreateProject = jest.fn();
 const mockGetProjects = jest.fn();
 const mockGetProject = jest.fn();
+const mockGetProjectDocuments = jest.fn();
 const mockUpdateProject = jest.fn();
+const mockUploadProjectDocuments = jest.fn();
 
 jest.mock('../redux/services/users/usersApi', () => ({
   useLazyConfirmUserQuery: () => [mockCheckUserContact, { isFetching: false }],
@@ -29,6 +31,8 @@ jest.mock('../redux/services/users/usersApi', () => ({
   useCreateProjectMutation: () => [mockCreateProject, { isLoading: false }],
   useGetProjectsQuery: () => mockGetProjects(),
   useGetProjectQuery: () => mockGetProject(),
+  useGetProjectDocumentsQuery: () => mockGetProjectDocuments(),
+  useUploadProjectDocumentsMutation: () => [mockUploadProjectDocuments, { isLoading: false }],
   useUpdateProjectMutation: () => [mockUpdateProject, { isLoading: false }],
 }));
 
@@ -104,6 +108,11 @@ beforeEach(() => {
         ],
       },
     },
+    isLoading: false,
+    isError: false,
+  });
+  mockGetProjectDocuments.mockReturnValue({
+    data: { documents: [] },
     isLoading: false,
     isError: false,
   });
@@ -433,7 +442,7 @@ test('renders the protected engineer add-projects route', () => {
   window.history.pushState({}, '', '/add-projects');
   render(<App />);
 
-  expect(screen.getByRole('heading', { name: /add projects/i })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: /^add project$/i })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: /open navigation menu/i })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: /taylor day/i })).toBeInTheDocument();
 
@@ -446,7 +455,7 @@ test('renders the protected engineer add-projects route', () => {
   expect(screen.getByRole('heading', { name: 'Manage Projects' })).toBeInTheDocument();
 });
 
-test('renders project-scoped section placeholders with responsive project navigation', () => {
+test('renders project documents with responsive project navigation', () => {
   mockGetCurrentSession.mockReturnValue({
     data: {
       user: {
@@ -464,7 +473,7 @@ test('renders project-scoped section placeholders with responsive project naviga
   render(<App />);
 
   expect(screen.getByRole('heading', { name: 'Documents' })).toBeInTheDocument();
-  expect(screen.getByText(/this section is coming soon/i)).toBeInTheDocument();
+  expect(screen.getByText(/upload project files with add document/i)).toBeInTheDocument();
   const projectSummary = screen.getByRole('region', { name: 'Project summary' });
   expect(within(projectSummary).getByRole('heading', { name: 'harbor house' })).toBeInTheDocument();
   expect(within(projectSummary).getByText('Project type')).toBeInTheDocument();
@@ -477,9 +486,39 @@ test('renders project-scoped section placeholders with responsive project naviga
     'href',
     '/manage-projects'
   );
+  const addDocumentButton = screen.getByRole('button', { name: 'Add Document' });
+  const sectionHeader = projectBackLink.parentElement;
+  expect(sectionHeader).toContainElement(addDocumentButton);
+  expect(sectionHeader).toHaveClass('sm:justify-between');
+  expect(addDocumentButton).toHaveClass('self-end');
   expect(projectBackLink.closest('section')).toContainElement(
     screen.getByRole('heading', { name: 'Documents' })
   );
+
+  userEvent.click(addDocumentButton);
+  const documentDialog = screen.getByRole('dialog', { name: 'Add a document' });
+  const categorySelect = within(documentDialog).getByRole('combobox', {
+    name: /document category/i,
+  });
+  expect(Array.from(categorySelect.options).map((option) => option.textContent)).toEqual([
+    'Select a category',
+    'Legal & Approvals',
+    'Drawings & Designs',
+    'Contract & Commercial',
+    'Quality & Testing',
+    'Safety & Compliance',
+    'Site Progress & Reports',
+    'Other',
+  ]);
+  fireEvent.change(within(documentDialog).getByLabelText('Files'), {
+    target: {
+      files: [new File(['drawing'], 'floor-plan.pdf', { type: 'application/pdf' })],
+    },
+  });
+  expect(within(documentDialog).getByText('floor-plan.pdf')).toBeInTheDocument();
+  expect(within(documentDialog).getByRole('button', { name: 'Save' })).toBeInTheDocument();
+  userEvent.click(within(documentDialog).getByRole('button', { name: 'Cancel' }));
+  expect(screen.queryByRole('dialog', { name: 'Add a document' })).not.toBeInTheDocument();
 
   const sectionNavigation = screen.getByRole('navigation', { name: 'Sections' });
   const editProjectLink = within(sectionNavigation).getByRole('link', { name: 'Edit Project' });

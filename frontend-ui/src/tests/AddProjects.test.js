@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
-import AddProjects from '../pages/dashboard/engineer/AddProjects'
+import AddProjectForm from '../pages/dashboard/engineer/forms/AddProjectForm'
 
 const mockCreateProject = jest.fn()
 
@@ -16,7 +16,7 @@ beforeEach(() => {
 })
 
 test('renders required project fields and optional project details', () => {
-  render(<AddProjects />)
+  render(<AddProjectForm />)
 
   expect(screen.getByRole('heading', { name: 'Add Project' })).toBeInTheDocument()
   const projectFormCard = screen.getByRole('heading', { name: 'Add Project' }).closest('section')
@@ -53,7 +53,7 @@ test('renders required project fields and optional project details', () => {
 })
 
 test('provides the specified project type and status options', () => {
-  render(<AddProjects />)
+  render(<AddProjectForm />)
 
   const projectTypeOptions = within(screen.getByLabelText(/^Project Type/))
     .getAllByRole('option')
@@ -90,7 +90,7 @@ test('provides the specified project type and status options', () => {
 })
 
 test('submits valid project data to the API and reports success', async () => {
-  render(<AddProjects />)
+  render(<AddProjectForm />)
   const form = screen
     .getByRole('button', { name: 'Create Project' })
     .closest('form')
@@ -118,7 +118,7 @@ test('submits valid project data to the API and reports success', async () => {
 })
 
 test('sends the selected images and project fields as multipart form data', async () => {
-  render(<AddProjects />)
+  render(<AddProjectForm />)
   const coverImage = new File(['cover'], 'cover.png', { type: 'image/png' })
   const otherImage = new File(['detail'], 'detail.jpg', { type: 'image/jpeg' })
   fireEvent.change(screen.getByLabelText(/^Project Name/), {
@@ -151,7 +151,7 @@ test('sends the selected images and project fields as multipart form data', asyn
 })
 
 test('previews newly selected images and uploads only the remaining files on submit', async () => {
-  render(<AddProjects />)
+  render(<AddProjectForm />)
   const coverImage = new File(['cover'], 'temporary-cover.png', { type: 'image/png' })
   const retainedImage = new File(['detail'], 'retained-detail.jpg', {
     type: 'image/jpeg',
@@ -210,7 +210,7 @@ test('previews newly selected images and uploads only the remaining files on sub
 })
 
 test('rejects oversized cover and other images and blocks submission', () => {
-  render(<AddProjects />)
+  render(<AddProjectForm />)
   const coverInput = screen.getByLabelText(/^Cover Image/)
   const otherImagesInput = screen.getByLabelText(/^Other Images/)
   const oversizedImage = new File(
@@ -244,7 +244,7 @@ test('rejects oversized cover and other images and blocks submission', () => {
 })
 
 test('accepts images at the 5 MB limit and supports multiple other images', () => {
-  render(<AddProjects />)
+  render(<AddProjectForm />)
   const coverInput = screen.getByLabelText(/^Cover Image/)
   const otherImagesInput = screen.getByLabelText(/^Other Images/)
   const imageAtLimit = new File(
@@ -265,7 +265,7 @@ test('accepts images at the 5 MB limit and supports multiple other images', () =
 })
 
 test('rejects non-image files and prevents submission until valid images are selected', async () => {
-  render(<AddProjects />)
+  render(<AddProjectForm />)
   const otherImagesInput = screen.getByLabelText(/^Other Images/)
   const validImage = new File(['image'], 'valid.png', { type: 'image/png' })
   const nonImageFile = new File(['text'], 'notes.txt', { type: 'text/plain' })
@@ -311,7 +311,7 @@ test('adds other images across selections and disables selection at ten images',
     title: `Existing ${index + 1}`,
     is_cover: false,
   }))
-  render(<AddProjects existingImages={existingImages} />)
+  render(<AddProjectForm existingImages={existingImages} />)
   const firstNewImage = new File(['first'], 'first.jpg', { type: 'image/jpeg' })
   const secondNewImage = new File(['second'], 'second.jpg', { type: 'image/jpeg' })
   const thirdNewImage = new File(['third'], 'third.jpg', { type: 'image/jpeg' })

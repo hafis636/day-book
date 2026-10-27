@@ -1,21 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { useCreateProjectMutation } from '../../../redux/services/users/usersApi'
-import { ProjectBackLink } from './ProjectWorkspaceLayout'
+import { useCreateProjectMutation } from '../../../../redux/services/users/usersApi'
+import { ProjectBackLink } from '../ProjectWorkspaceLayout'
+import { PROJECT_STATUSES, PROJECT_TYPES } from '../constants'
 
-const projectTypes = [
-  'Residential House',
-  'Villa',
-  'Apartment',
-  'Commercial Building',
-  'Office',
-  'Shop',
-  'Hospital',
-  'School',
-  'Industrial',
-  'Other',
-]
-
-const projectStatuses = ['In discussion', 'Planning', 'Ongoing', 'Completed']
 const capitalizeWords = (text) =>
   text.replace(/\b\w/g, (character) => character.toUpperCase())
 const maxImageSize = 5 * 1024 * 1024
@@ -62,7 +49,7 @@ const TemporaryImageThumbnail = ({ file, onRemove }) => (
   />
 )
 
-const AddProjects = ({
+const AddProjectForm = ({
   project,
   existingImages = [],
   onSubmitProject,
@@ -314,7 +301,7 @@ const AddProjects = ({
                 <option value="" disabled>
                   Choose a Project Type
                 </option>
-                {projectTypes.map((type) => (
+                {PROJECT_TYPES.map((type) => (
                   <option key={type} value={type}>
                     {type}
                   </option>
@@ -334,7 +321,7 @@ const AddProjects = ({
                 onChange={clearSubmissionMessage}
               >
                 <option value="">Select a Status</option>
-                {projectStatuses.map((status) => (
+                {PROJECT_STATUSES.map((status) => (
                   <option key={status} value={status}>
                     {capitalizeWords(status)}
                   </option>
@@ -568,4 +555,4 @@ const AddProjects = ({
   )
 }
 
-export default AddProjects
+export default AddProjectForm

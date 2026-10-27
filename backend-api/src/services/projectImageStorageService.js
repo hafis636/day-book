@@ -2,6 +2,7 @@ const { S3Client, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/cl
 const { randomUUID } = require('crypto');
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
+const MAX_DOCUMENT_SIZE = 20 * 1024 * 1024;
 const IMAGE_FORMATS = {
   'image/jpeg': {
     extension: 'jpg',
@@ -49,7 +50,7 @@ const getStorageConfig = () => {
     .map(([name]) => name);
   if (missingSettings.length > 0) {
     throw new Error(
-      `Supabase Storage S3 credentials and bucket configuration are required for image uploads. Missing: ${missingSettings.join(', ')}`
+      `Supabase Storage S3 credentials and bucket configuration are required for project file uploads. Missing: ${missingSettings.join(', ')}`
     );
   }
 
@@ -130,6 +131,28 @@ const uploadProjectImage = async (projectId, file) => {
   };
 };
 
+const uploadProjectDocument = async (projectId, file) => {
+  const config = getStorageConfig();
+  const extension = file.originalname.match(/\.[a-zA-Z0-9]{1,10}$/)?.[0].toLowerCase() || '';
+  const key = `projects/${projectId}/documents/${randomUUID()}${extension}`;
+  await getClient(config).send(
+    new PutObjectCommand({
+      Bucket: config.bucket,
+      Key: key,
+      Body: file.buffer,
+      ContentType: file.mimetype || 'application/octet-stream',
+    })
+  );
+
+  return {
+    key,
+    fileUrl: `${config.supabaseUrl}/storage/v1/object/public/${encodeURIComponent(config.bucket)}/${key
+      .split('/')
+      .map(encodeURIComponent)
+      .join('/')}`,
+  };
+};
+
 const deleteProjectImage = async (key) => {
   const config = getStorageConfig();
   await getClient(config).send(
@@ -168,10 +191,12 @@ const deleteProjectImageByUrl = async (imageUrl) => {
 
 module.exports = {
   IMAGE_FORMATS,
+  MAX_DOCUMENT_SIZE,
   MAX_IMAGE_SIZE,
   deleteProjectImage,
   deleteProjectImageByUrl,
   toPublicImageUrl,
+  uploadProjectDocument,
   uploadProjectImage,
   validateImageFile,
 };

@@ -3,7 +3,7 @@ import { API_BASE_URL } from "../../../config/api";
 
 export const usersApi = createApi({
   reducerPath: "usersApi",
-  tagTypes: ["Session", "Project"],
+  tagTypes: ["Session", "Project", "ProjectDocuments", "Plans"],
   baseQuery: fetchBaseQuery({
     baseUrl: API_BASE_URL,
     credentials: "include",
@@ -45,6 +45,17 @@ export const usersApi = createApi({
       query: () => "/session",
       providesTags: ["Session"],
     }),
+    getPlans: builder.query({
+      query: () => "/plans",
+      providesTags: ["Plans"],
+    }),
+    selectPlan: builder.mutation({
+      query: (planCode) => ({
+        url: `/plans/${encodeURIComponent(planCode)}`,
+        method: "PATCH",
+      }),
+      invalidatesTags: ["Session"],
+    }),
     logout: builder.mutation({
       query: () => ({
         url: "/session/logout",
@@ -76,6 +87,22 @@ export const usersApi = createApi({
       }),
       invalidatesTags: ["Project"],
     }),
+    getProjectDocuments: builder.query({
+      query: (projectId) => `/projects/${projectId}/documents`,
+      providesTags: (result, error, projectId) => [
+        { type: "ProjectDocuments", id: projectId },
+      ],
+    }),
+    uploadProjectDocuments: builder.mutation({
+      query: ({ projectId, formData }) => ({
+        url: `/projects/${projectId}/documents`,
+        method: "POST",
+        body: formData,
+      }),
+      invalidatesTags: (result, error, { projectId }) => [
+        { type: "ProjectDocuments", id: projectId },
+      ],
+    }),
   }),
 });
 
@@ -86,9 +113,13 @@ export const {
   useLazyConfirmUserQuery,
   useValidateOtpMutation,
   useGetCurrentSessionQuery,
+  useGetPlansQuery,
+  useSelectPlanMutation,
   useLogoutMutation,
   useCreateProjectMutation,
   useGetProjectsQuery,
   useGetProjectQuery,
   useUpdateProjectMutation,
+  useGetProjectDocumentsQuery,
+  useUploadProjectDocumentsMutation,
 } = usersApi;

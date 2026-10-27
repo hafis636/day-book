@@ -3,6 +3,7 @@ const {
   deleteProjectImage,
   deleteProjectImageByUrl,
   toPublicImageUrl,
+  uploadProjectDocument,
   uploadProjectImage,
 } = require('./projectImageStorageService');
 
@@ -14,6 +15,10 @@ const projectStatusLabels = {
 };
 
 const createProject = async (engineerId, project, files) => {
+  if (!engineerId) {
+    throw new Error('An authenticated user ID is required to create a project');
+  }
+
   const client = await pool.connect();
   const uploadedImages = [];
   let transactionStarted = false;
@@ -58,9 +63,10 @@ const createProject = async (engineerId, project, files) => {
       const title = image.file.originalname.replace(/\\/g, '/').split('/').pop().slice(0, 255);
       await client.query(
         `INSERT INTO "daybook-dev-db".project_documents
-           (project_id, file_path, file_type, title, description, display_order, is_cover, created_at)
-         VALUES ($1, $2, 'images', $3, $4, $5, $6, NOW())`,
-        [projectId, storedImage.imageUrl, title, null, image.displayOrder, image.isCover]
+           (project_id, file_path, file_type, title, reference_number, display_order,
+            is_cover, visibility, created_by, is_active)
+         VALUES ($1, $2, 'image', $3, '0', $4, $5, 'Public', $6, TRUE)`,
+        [projectId, storedImage.imageUrl, title, image.displayOrder, image.isCover, engineerId]
       );
     }
 
@@ -97,14 +103,14 @@ const getProjectsForUser = async (userId) => {
      LEFT JOIN LATERAL (
        SELECT file_path
        FROM "daybook-dev-db".project_documents
-       WHERE project_id = p.id AND file_type = 'images' AND is_cover = TRUE
+       WHERE project_id = p.id AND file_type IN ('image', 'images') AND is_cover = TRUE
        ORDER BY display_order ASC, created_at ASC
        LIMIT 1
      ) AS cover ON TRUE
      LEFT JOIN LATERAL (
        SELECT file_path
        FROM "daybook-dev-db".project_documents
-       WHERE project_id = p.id AND file_type = 'images' AND is_cover IS NOT TRUE
+       WHERE project_id = p.id AND file_type IN ('image', 'images') AND is_cover IS NOT TRUE
        ORDER BY display_order ASC, created_at ASC
        LIMIT 1
      ) AS first_other ON TRUE
@@ -130,14 +136,14 @@ const getProjectForUser = async (userId, projectId) => {
      LEFT JOIN LATERAL (
        SELECT file_path
        FROM "daybook-dev-db".project_documents
-       WHERE project_id = p.id AND file_type = 'images' AND is_cover = TRUE
+       WHERE project_id = p.id AND file_type IN ('image', 'images') AND is_cover = TRUE
        ORDER BY display_order ASC, created_at ASC
        LIMIT 1
      ) AS cover ON TRUE
      LEFT JOIN LATERAL (
        SELECT file_path
        FROM "daybook-dev-db".project_documents
-       WHERE project_id = p.id AND file_type = 'images' AND is_cover IS NOT TRUE
+       WHERE project_id = p.id AND file_type IN ('image', 'images') AND is_cover IS NOT TRUE
        ORDER BY display_order ASC, created_at ASC
        LIMIT 1
      ) AS first_other ON TRUE
@@ -150,7 +156,7 @@ const getProjectForUser = async (userId, projectId) => {
   const imagesResult = await pool.query(
     `SELECT file_path AS image_url, title, is_cover, display_order
      FROM "daybook-dev-db".project_documents
-     WHERE project_id = $1 AND file_type = 'images'
+     WHERE project_id = $1 AND file_type IN ('image', 'images')
      ORDER BY display_order ASC, created_at ASC`,
     [projectId]
   );
@@ -173,7 +179,108 @@ const getProjectForUser = async (userId, projectId) => {
   };
 };
 
+const getProjectDocumentsForUser = async (userId, projectId) => {
+  const result = await pool.query(
+    `SELECT d.id, d.file_path, d.title, d.description, d.file_type,
+            d.reference_number, d.display_order, d.review_status,
+            d.review_comments, d.reviewed_by, d.reviewed_at, d.visibility,
+            d.document_date, d.expiry_date, d.created_by, d.created_at
+     FROM "daybook-dev-db".project_documents AS d
+     INNER JOIN "daybook-dev-db".projects AS p ON p.id = d.project_id
+     WHERE p.engineer_id = $1 AND d.project_id = $2
+       AND d.is_active = TRUE AND d.file_type NOT IN ('image', 'images')
+     ORDER BY d.created_at DESC, d.display_order ASC`,
+    [userId, projectId]
+  );
+
+  return result.rows;
+};
+
+const uploadProjectDocumentsForUser = async (userId, projectId, document, files) => {
+  if (!userId) {
+    throw new Error('An authenticated user ID is required to upload project documents');
+  }
+
+  const client = await pool.connect();
+  const uploadedFiles = [];
+  let transactionStarted = false;
+
+  try {
+    await client.query('BEGIN');
+    transactionStarted = true;
+    const ownedProject = await client.query(
+      `SELECT id FROM "daybook-dev-db".projects
+       WHERE engineer_id = $1 AND id = $2
+       FOR UPDATE`,
+      [userId, projectId]
+    );
+    if (!ownedProject.rows[0]) {
+      await client.query('ROLLBACK');
+      transactionStarted = false;
+      return null;
+    }
+
+    const savedDocuments = [];
+    for (const file of files) {
+      const storedFile = await uploadProjectDocument(projectId, file);
+      uploadedFiles.push(storedFile);
+      const result = await client.query(
+        `INSERT INTO "daybook-dev-db".project_documents
+           (project_id, file_path, title, description, file_type, reference_number,
+            review_status, visibility, document_date, created_by)
+         VALUES ($1, $2, $3, $4, $5, COALESCE(NULLIF($6, ''), 'V1.0'),
+                 COALESCE(NULLIF($7, ''), 'DRAFT'),
+                 COALESCE(NULLIF($8, ''), 'PROJECT_TEAM'), NULLIF($9, '')::date, $10)
+         RETURNING id, file_path, title, description, file_type, reference_number,
+                   display_order, review_status, review_comments, reviewed_by,
+                   reviewed_at, visibility, document_date, expiry_date, created_by,
+                   created_at`,
+        [
+          projectId,
+          storedFile.fileUrl,
+          document.title,
+          document.description || null,
+          document.category,
+          document.referenceNumber || '',
+          document.reviewStatus || '',
+          document.visibility || '',
+          document.date || '',
+          userId,
+        ]
+      );
+      savedDocuments.push(result.rows[0]);
+    }
+
+    await client.query('COMMIT');
+    transactionStarted = false;
+    return savedDocuments;
+  } catch (error) {
+    if (transactionStarted) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackError) {
+        console.error('Failed to roll back project document upload:', rollbackError);
+      }
+    }
+
+    for (const file of uploadedFiles) {
+      try {
+        await deleteProjectImage(file.key);
+      } catch (cleanupError) {
+        console.error('Failed to clean up project document after upload failure:', cleanupError);
+      }
+    }
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
 const updateProjectForUser = async (userId, projectId, project, files, removeImageUrls) => {
+  if (!userId) {
+    throw new Error('An authenticated user ID is required to update a project');
+  }
+
   const client = await pool.connect();
   const uploadedImages = [];
   let transactionStarted = false;
@@ -196,7 +303,7 @@ const updateProjectForUser = async (userId, projectId, project, files, removeIma
     const currentImagesResult = await client.query(
       `SELECT file_path, is_cover, display_order
        FROM "daybook-dev-db".project_documents
-       WHERE project_id = $1 AND file_type = 'images'
+       WHERE project_id = $1 AND file_type IN ('image', 'images')
        FOR UPDATE`,
       [projectId]
     );
@@ -255,7 +362,7 @@ const updateProjectForUser = async (userId, projectId, project, files, removeIma
     if (imagesToRemove.length) {
       await client.query(
         `DELETE FROM "daybook-dev-db".project_documents
-         WHERE project_id = $1 AND file_type = 'images' AND file_path = ANY($2::text[])`,
+         WHERE project_id = $1 AND file_type IN ('image', 'images') AND file_path = ANY($2::text[])`,
         [projectId, imagesToRemove.map((image) => image.file_path)]
       );
     }
@@ -274,9 +381,10 @@ const updateProjectForUser = async (userId, projectId, project, files, removeIma
       const title = image.file.originalname.replace(/\\/g, '/').split('/').pop().slice(0, 255);
       await client.query(
         `INSERT INTO "daybook-dev-db".project_documents
-           (project_id, file_path, file_type, title, description, display_order, is_cover, created_at)
-         VALUES ($1, $2, 'images', $3, $4, $5, $6, NOW())`,
-        [projectId, storedImage.imageUrl, title, null, image.displayOrder, image.isCover]
+           (project_id, file_path, file_type, title, reference_number, display_order,
+            is_cover, visibility, created_by, is_active)
+         VALUES ($1, $2, 'image', $3, '0', $4, $5, 'Public', $6, TRUE)`,
+        [projectId, storedImage.imageUrl, title, image.displayOrder, image.isCover, userId]
       );
     }
 
@@ -320,7 +428,9 @@ const updateProjectForUser = async (userId, projectId, project, files, removeIma
 
 module.exports = {
   createProject,
+  getProjectDocumentsForUser,
   getProjectForUser,
   getProjectsForUser,
+  uploadProjectDocumentsForUser,
   updateProjectForUser,
 };

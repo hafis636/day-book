@@ -13,6 +13,10 @@ const requireAuthenticatedSession = async (req, res, next) => {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
+    if (!session.user?.id) {
+      return res.status(401).json({ error: 'Authenticated user ID is missing' });
+    }
+
     req.authenticatedUser = session.user;
     return next();
   } catch (error) {

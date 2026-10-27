@@ -10,10 +10,10 @@ const projectSections = [
   { label: 'Material Details', path: 'material-details' },
 ]
 
-export const ProjectBackLink = () => (
+export const ProjectBackLink = ({ className = 'mb-5' }) => (
   <Link
     to="/manage-projects"
-    className="mb-5 inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 transition hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+    className={`${className} inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 transition hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600`}
   >
     <span aria-hidden="true" className="text-lg leading-none">←</span>
     Projects

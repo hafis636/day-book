@@ -23,7 +23,7 @@ export const HomeRedirect = () => {
   return <Navigate to={data?.user ? '/dashboard' : '/login'} replace />
 }
 
-export const ProtectedRoute = ({ children, allowedRoles }) => {
+export const ProtectedRoute = ({ children, allowedRoles, excludedRoles = [] }) => {
   const { data, isLoading, refetch } = useGetCurrentSessionQuery(undefined, {
     refetchOnMountOrArgChange: true,
   })
@@ -52,10 +52,13 @@ export const ProtectedRoute = ({ children, allowedRoles }) => {
   const hasAccess =
     !allowedRoles ||
     allowedRoles.map(normalizeRole).includes(normalizeRole(data.user.role))
+  const isExcluded = excludedRoles
+    .map(normalizeRole)
+    .includes(normalizeRole(data.user.role))
 
   return (
     <AuthenticatedLayout>
-      {hasAccess ? children : <Unauthorized />}
+      {hasAccess && !isExcluded ? children : <Unauthorized />}
     </AuthenticatedLayout>
   )
 }
