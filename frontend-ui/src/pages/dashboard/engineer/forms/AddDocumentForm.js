@@ -4,10 +4,24 @@ import {
   DOCUMENT_VISIBILITIES,
   REVIEW_STATUSES,
 } from '../constants'
-import { useUploadProjectDocumentsMutation } from '../../../../redux/services/users/usersApi'
+import {
+  useUpdateProjectDocumentMutation,
+  useUploadProjectDocumentsMutation,
+} from '../../../../redux/services/users/usersApi'
 
 const inputClasses =
   'mt-2 block w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20'
+
+const normalizeOptionValue = (value) => value?.replace(/_/g, ' ').toLowerCase()
+const lockedReviewStatuses = new Set(['approved', 'rejected', 'archived'])
+const getFileName = (filePath) => {
+  if (!filePath) return ''
+  try {
+    return decodeURIComponent(new URL(filePath, window.location.href).pathname.split('/').pop())
+  } catch {
+    return filePath.split('/').pop()
+  }
+}
 
 const FieldLabel = ({ htmlFor, children, required = false }) => (
   <label htmlFor={htmlFor} className="block text-sm font-semibold text-slate-700">
@@ -20,23 +34,31 @@ const FieldLabel = ({ htmlFor, children, required = false }) => (
   </label>
 )
 
-const AddDocumentForm = ({ projectId, onClose }) => {
+const AddDocumentForm = ({ projectId, document, onClose }) => {
+  const isEditing = Boolean(document)
+  const currentReviewStatus = normalizeOptionValue(document?.review_status)
+  const isReviewStatusLocked = lockedReviewStatuses.has(currentReviewStatus)
   const [files, setFiles] = useState([])
   const [submissionError, setSubmissionError] = useState('')
   const dialogRef = useRef(null)
   const titleRef = useRef(null)
   const [uploadProjectDocuments, { isLoading }] = useUploadProjectDocumentsMutation()
+  const [updateProjectDocument, { isLoading: isUpdating }] =
+    useUpdateProjectDocumentMutation()
+  const isSaving = isLoading || isUpdating
+  const isSavingRef = useRef(isSaving)
+  isSavingRef.current = isSaving
 
   useEffect(() => {
-    const previouslyFocusedElement = document.activeElement
-    const previousBodyOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
+    const previouslyFocusedElement = window.document.activeElement
+    const previousBodyOverflow = window.document.body.style.overflow
+    window.document.body.style.overflow = 'hidden'
     titleRef.current?.focus()
 
     const handleKeyDown = (event) => {
       if (event.key === 'Escape') {
         event.preventDefault()
-        if (!isLoading) onClose()
+        if (!isSavingRef.current) onClose()
         return
       }
 
@@ -50,32 +72,33 @@ const AddDocumentForm = ({ projectId, onClose }) => {
       const firstElement = focusableElements[0]
       const lastElement = focusableElements[focusableElements.length - 1]
 
-      if (event.shiftKey && document.activeElement === firstElement) {
+      if (event.shiftKey && window.document.activeElement === firstElement) {
         event.preventDefault()
         lastElement?.focus()
-      } else if (!event.shiftKey && document.activeElement === lastElement) {
+      } else if (!event.shiftKey && window.document.activeElement === lastElement) {
         event.preventDefault()
         firstElement?.focus()
       }
     }
 
-    document.addEventListener('keydown', handleKeyDown)
+    window.document.addEventListener('keydown', handleKeyDown)
     return () => {
-      document.removeEventListener('keydown', handleKeyDown)
-      document.body.style.overflow = previousBodyOverflow
+      window.document.removeEventListener('keydown', handleKeyDown)
+      window.document.body.style.overflow = previousBodyOverflow
       previouslyFocusedElement?.focus()
     }
-  }, [isLoading, onClose])
+  }, [onClose])
 
   const submitDocument = async (event) => {
     event.preventDefault()
+    if (isSavingRef.current) return
     const form = event.currentTarget
     setSubmissionError('')
     if (!form.checkValidity()) {
       form.reportValidity()
       return
     }
-    if (!files.length) {
+    if (!isEditing && !files.length) {
       setSubmissionError('Select at least one file to upload.')
       return
     }
@@ -84,17 +107,32 @@ const AddDocumentForm = ({ projectId, onClose }) => {
     formData.delete('files')
     files.forEach((file) => formData.append('files', file))
     try {
-      await uploadProjectDocuments({ projectId, formData }).unwrap()
+      if (isEditing) {
+        await updateProjectDocument({
+          projectId,
+          documentId: document.id,
+          formData,
+        }).unwrap()
+      } else {
+        await uploadProjectDocuments({ projectId, formData }).unwrap()
+      }
       onClose()
     } catch (error) {
       setSubmissionError(
-        error?.data?.error || 'Unable to upload the document. Please try again.'
+        error?.data?.error ||
+          `Unable to ${isEditing ? 'save' : 'upload'} the document. Please try again.`
       )
     }
   }
 
   const addFiles = (event) => {
     const selectedFiles = Array.from(event.currentTarget.files || [])
+    if (isEditing) {
+      setFiles(selectedFiles.slice(0, 1))
+      event.currentTarget.value = ''
+      return
+    }
+
     setFiles((currentFiles) => {
       const nextFiles = [...currentFiles]
       selectedFiles.forEach((file) => {
@@ -112,7 +150,7 @@ const AddDocumentForm = ({ projectId, onClose }) => {
   }
 
   const handleBackdropClick = (event) => {
-    if (!isLoading && event.target === event.currentTarget) onClose()
+    if (!isSaving && event.target === event.currentTarget) onClose()
   }
 
   return (
@@ -138,18 +176,20 @@ const AddDocumentForm = ({ projectId, onClose }) => {
               className="mt-1 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl"
               tabIndex="-1"
             >
-              Add a document
+              {isEditing ? 'Edit document' : 'Add a document'}
             </h2>
             <p
               id="document-modal-description"
               className="mt-1.5 max-w-xl text-sm leading-5 text-slate-600"
             >
-              Enter the document details and choose one or more files.
+              {isEditing
+                ? 'Update the document details or choose a replacement file.'
+                : 'Enter the document details and choose one or more files.'}
             </p>
           </div>
           <button
             type="button"
-            aria-label="Close add document form"
+            aria-label={`Close ${isEditing ? 'edit' : 'add'} document form`}
             onClick={onClose}
             className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-xl leading-none text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
           >
@@ -183,6 +223,7 @@ const AddDocumentForm = ({ projectId, onClose }) => {
                 autoComplete="off"
                 placeholder="e.g. Ground floor structural drawings"
                 required
+                defaultValue={document?.title || ''}
               />
             </div>
             <div className="sm:col-span-2">
@@ -192,6 +233,7 @@ const AddDocumentForm = ({ projectId, onClose }) => {
                 id="document-description"
                 name="description"
                 rows="3"
+                defaultValue={document?.description || ''}
                 placeholder="Add a brief description or context"
               />
             </div>
@@ -203,7 +245,7 @@ const AddDocumentForm = ({ projectId, onClose }) => {
                 className={inputClasses}
                 id="document-category"
                 name="category"
-                defaultValue=""
+                defaultValue={document?.file_type || ''}
                 required
               >
                 <option value="" disabled>
@@ -225,6 +267,7 @@ const AddDocumentForm = ({ projectId, onClose }) => {
                 type="text"
                 autoComplete="off"
                 placeholder="Enter a reference number"
+                defaultValue={document?.reference_number || ''}
               />
             </div>
             <div>
@@ -234,6 +277,7 @@ const AddDocumentForm = ({ projectId, onClose }) => {
                 id="document-date"
                 name="date"
                 type="date"
+                defaultValue={document?.document_date?.slice(0, 10) || ''}
               />
             </div>
             <div>
@@ -242,10 +286,22 @@ const AddDocumentForm = ({ projectId, onClose }) => {
                 className={inputClasses}
                 id="document-review-status"
                 name="reviewStatus"
-                defaultValue=""
+                disabled={isReviewStatusLocked}
+                defaultValue={
+                  REVIEW_STATUSES.find(
+                    (status) =>
+                      normalizeOptionValue(status) ===
+                      normalizeOptionValue(document?.review_status)
+                  ) || ''
+                }
               >
                 <option value="">Select a review status</option>
-                {REVIEW_STATUSES.map((status) => (
+                {REVIEW_STATUSES.filter(
+                  (status) =>
+                    !isEditing ||
+                    currentReviewStatus === 'draft' ||
+                    normalizeOptionValue(status) !== 'draft'
+                ).map((status) => (
                   <option key={status} value={status}>
                     {status}
                   </option>
@@ -258,7 +314,13 @@ const AddDocumentForm = ({ projectId, onClose }) => {
                 className={inputClasses}
                 id="document-visibility"
                 name="visibility"
-                defaultValue=""
+                defaultValue={
+                  DOCUMENT_VISIBILITIES.find(
+                    (visibility) =>
+                      normalizeOptionValue(visibility) ===
+                      normalizeOptionValue(document?.visibility)
+                  ) || ''
+                }
               >
                 <option value="">Select visibility</option>
                 {DOCUMENT_VISIBILITIES.map((visibility) => (
@@ -269,18 +331,22 @@ const AddDocumentForm = ({ projectId, onClose }) => {
               </select>
             </div>
             <div className="sm:col-span-2">
-              <FieldLabel htmlFor="document-files">Files</FieldLabel>
+              <FieldLabel htmlFor="document-files">
+                {isEditing ? 'Replace file (optional)' : 'Files'}
+              </FieldLabel>
               <input
                 className={`${inputClasses} file:mr-3 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-blue-700 hover:file:bg-blue-100`}
                 id="document-files"
                 name="files"
                 type="file"
-                multiple
+                multiple={!isEditing}
                 onChange={addFiles}
                 aria-describedby="document-files-help"
               />
               <p id="document-files-help" className="mt-1.5 text-xs leading-5 text-slate-500">
-                Select one or more files. Each file can be up to 20 MB.
+                {isEditing
+                  ? `Current file: ${getFileName(document.file_path)}. Select one replacement file (up to 20 MB) or leave empty to keep it.`
+                  : 'Select one or more files. Each file can be up to 20 MB.'}
               </p>
               {files.length > 0 && (
                 <ul className="mt-3 divide-y divide-slate-200 rounded-lg border border-slate-200">
@@ -320,17 +386,17 @@ const AddDocumentForm = ({ projectId, onClose }) => {
             <button
               type="button"
               onClick={onClose}
-              disabled={isLoading}
+              disabled={isSaving}
               className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
             >
               Cancel
             </button>
             <button
               type="submit"
-              disabled={isLoading}
-              className="inline-flex min-h-10 items-center justify-center rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60"
+              aria-disabled={isSaving}
+              className="inline-flex min-h-10 items-center justify-center rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 aria-disabled:cursor-wait aria-disabled:opacity-60"
             >
-              {isLoading ? 'Uploading…' : 'Save'}
+              {isSaving ? (isEditing ? 'Saving…' : 'Uploading…') : 'Save'}
             </button>
           </footer>
         </form>

@@ -25,18 +25,44 @@ const FieldLabel = ({ htmlFor, children, required = false, optional = false }) =
   </label>
 )
 
+const ProjectInfoSection = ({ title, fields }) => {
+  const availableFields = fields.filter(
+    ({ value }) => value !== null && value !== undefined && String(value).trim()
+  )
+
+  if (!availableFields.length) return null
+
+  return (
+    <section className="rounded-xl border border-slate-200 bg-slate-50/60 p-5">
+      <h2 className="text-sm font-semibold text-slate-800">{title}</h2>
+      <dl className="mt-4 grid gap-4 sm:grid-cols-2">
+        {availableFields.map(({ label, value }) => (
+          <div key={label}>
+            <dt className="text-sm font-semibold text-slate-700">{label}</dt>
+            <dd className="mt-1 whitespace-pre-wrap break-words text-sm text-slate-600">
+              {value}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  )
+}
+
 const ImageThumbnail = ({ src, alt, removeLabel, onRemove }) => (
   <div className="relative h-20 w-full overflow-hidden rounded-lg">
     <img src={src} alt={alt} className="h-full w-full object-cover" />
-    <button
-      type="button"
-      title="Remove"
-      aria-label={removeLabel}
-      onClick={onRemove}
-      className="absolute right-1 top-1 grid h-5 w-5 place-items-center rounded-full bg-slate-950/75 text-sm leading-none text-white shadow transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-white"
-    >
-      <span aria-hidden="true">×</span>
-    </button>
+    {onRemove && (
+      <button
+        type="button"
+        title="Remove"
+        aria-label={removeLabel}
+        onClick={onRemove}
+        className="absolute right-1 top-1 grid h-5 w-5 place-items-center rounded-full bg-slate-950/75 text-sm leading-none text-white shadow transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-white"
+      >
+        <span aria-hidden="true">×</span>
+      </button>
+    )}
   </div>
 )
 
@@ -54,6 +80,7 @@ const AddProjectForm = ({
   existingImages = [],
   onSubmitProject,
   isSaving: isSavingProp,
+  readOnly = false,
 }) => {
   const [submissionMessage, setSubmissionMessage] = useState('')
   const [submissionError, setSubmissionError] = useState('')
@@ -234,21 +261,93 @@ const AddProjectForm = ({
       .length -
     otherFiles.length
 
+  const projectImages = existingImages.filter((image) => image.image_url)
+  const header = (
+    <header className="border-b border-slate-200 px-6 py-6 sm:px-8">
+      {isEditing && <ProjectBackLink />}
+      <p className="text-xs font-bold uppercase tracking-[0.14em] text-blue-700">
+        {readOnly ? 'Project Overview' : 'Project Setup'}
+      </p>
+      <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+        {readOnly ? project.name : isEditing ? 'Edit Project' : 'Add Project'}
+      </h1>
+      {!readOnly && (
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+          Add the key details for a project. Fields marked with an asterisk are required.
+        </p>
+      )}
+    </header>
+  )
+
+  if (readOnly) {
+    return (
+      <section className="w-full overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
+        {header}
+        <div className="space-y-6 px-6 py-7 sm:px-8">
+          <ProjectInfoSection
+            title="Project Details"
+            fields={[
+              { label: 'Description', value: project.description },
+              { label: 'Project Type', value: project.project_type },
+              { label: 'Status', value: project.status },
+            ]}
+          />
+          <ProjectInfoSection
+            title="Project Dates"
+            fields={[
+              { label: 'Start Date', value: project.start_date },
+              {
+                label: 'Expected Completion Date',
+                value: project.expected_completion_date,
+              },
+              {
+                label: 'Actual Completion Date',
+                value: project.actual_completion_date,
+              },
+            ]}
+          />
+          <ProjectInfoSection
+            title="Location And Notes"
+            fields={[
+              { label: 'Address', value: project.address },
+              { label: 'Project Info', value: project.project_info },
+            ]}
+          />
+          {projectImages.length > 0 && (
+            <section className="rounded-xl border border-slate-200 bg-slate-50/60 p-5">
+              <h2 className="text-sm font-semibold text-slate-800">Project Images</h2>
+              <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {projectImages.map((image, index) => {
+                  const imageTitle =
+                    image.title || (image.is_cover ? 'Cover Image' : `Project image ${index + 1}`)
+                  return (
+                    <li key={image.image_url}>
+                      <figure>
+                        <img
+                          src={image.image_url}
+                          alt={imageTitle}
+                          className="aspect-square w-full rounded-lg object-cover"
+                        />
+                        {image.title && (
+                          <figcaption className="mt-2 break-words text-sm text-slate-600">
+                            {image.title}
+                          </figcaption>
+                        )}
+                      </figure>
+                    </li>
+                  )
+                })}
+              </ul>
+            </section>
+          )}
+        </div>
+      </section>
+    )
+  }
+
   return (
     <section className="w-full overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
-      <header className="border-b border-slate-200 px-6 py-6 sm:px-8">
-        {isEditing && <ProjectBackLink />}
-        <p className="text-xs font-bold uppercase tracking-[0.14em] text-blue-700">
-          Project Setup
-        </p>
-        <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-          {isEditing ? 'Edit Project' : 'Add Project'}
-        </h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-          Add the key details for a project. Fields marked with an asterisk are
-          required.
-        </p>
-      </header>
+      {header}
 
       <form className="space-y-7 px-6 py-7 sm:px-8" onSubmit={handleSubmit}>
         <fieldset className="space-y-6 rounded-xl border border-slate-200 bg-slate-50/60 p-5">
@@ -517,22 +616,24 @@ const AddProjectForm = ({
           </div>
         </fieldset>
 
-        <div className="flex flex-col-reverse gap-4 border-t border-slate-200 pt-6 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-xs text-slate-500">
-            Project details and selected images will be saved when you submit the form.
-          </p>
-          <button
-            className="inline-flex min-h-11 items-center justify-center rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-700 focus:ring-offset-2 active:bg-blue-900"
-            type="submit"
-            disabled={isSaving}
-          >
-            {isSaving
-              ? 'Saving Project...'
-              : isEditing
-                ? 'Save Changes'
-                : 'Create Project'}
-          </button>
-        </div>
+        {!readOnly && (
+          <div className="flex flex-col-reverse gap-4 border-t border-slate-200 pt-6 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-slate-500">
+              Project details and selected images will be saved when you submit the form.
+            </p>
+            <button
+              className="inline-flex min-h-11 items-center justify-center rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-700 focus:ring-offset-2 active:bg-blue-900"
+              type="submit"
+              disabled={isSaving}
+            >
+              {isSaving
+                ? 'Saving Project...'
+                : isEditing
+                  ? 'Save Changes'
+                  : 'Create Project'}
+            </button>
+          </div>
+        )}
 
         {submissionError && (
           <p

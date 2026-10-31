@@ -10,6 +10,8 @@ const projectSections = [
   { label: 'Material Details', path: 'material-details' },
 ]
 
+const limitedSectionStatuses = new Set(['in discussion', 'planning'])
+
 export const ProjectBackLink = ({ className = 'mb-5' }) => (
   <Link
     to="/manage-projects"
@@ -22,10 +24,17 @@ export const ProjectBackLink = ({ className = 'mb-5' }) => (
 
 const ProjectWorkspaceLayout = ({
   projectId,
+  projectStatus,
   activePath = '',
   children,
 }) => {
   const projectPath = `/manage-projects/${projectId}`
+  const isCompleted = projectStatus?.trim().toLowerCase() === 'completed'
+  const sections =
+    typeof projectStatus === 'string' &&
+    limitedSectionStatuses.has(projectStatus.trim().toLowerCase())
+      ? projectSections.filter(({ path }) => path === 'documents' || path === 'payments')
+      : projectSections
 
   return (
     <section
@@ -50,10 +59,10 @@ const ProjectWorkspaceLayout = ({
               to={projectPath}
               className="flex min-h-10 shrink-0 items-center justify-center rounded-lg px-3 text-center text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 lg:justify-start lg:px-3 lg:text-sm"
             >
-              Edit Project
+              {isCompleted ? 'View Project' : 'Edit Project'}
             </Link>
           )}
-          {projectSections.map((section) => {
+          {sections.map((section) => {
             const to = `${projectPath}/${section.path}`
             return (
               <NavLink

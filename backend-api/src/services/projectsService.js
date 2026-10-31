@@ -2,6 +2,7 @@ const { pool } = require('../config/db');
 const {
   deleteProjectImage,
   deleteProjectImageByUrl,
+  downloadProjectDocumentByUrl,
   toPublicImageUrl,
   uploadProjectDocument,
   uploadProjectImage,
@@ -194,6 +195,206 @@ const getProjectDocumentsForUser = async (userId, projectId) => {
   );
 
   return result.rows;
+};
+
+const getProjectDocumentDownloadForUser = async (userId, projectId, documentId) => {
+  if (!userId) {
+    throw new Error('An authenticated user ID is required to download a project document');
+  }
+
+  const result = await pool.query(
+    `SELECT d.file_path, d.title
+     FROM "daybook-dev-db".project_documents AS d
+     INNER JOIN "daybook-dev-db".projects AS p ON p.id = d.project_id
+     WHERE p.engineer_id = $1 AND d.project_id = $2 AND d.id = $3
+       AND d.is_active = TRUE AND d.file_type NOT IN ('image', 'images')
+     LIMIT 1`,
+    [userId, projectId, documentId]
+  );
+  const document = result.rows[0];
+  if (!document) return null;
+
+  return {
+    title: document.title,
+    file_path: document.file_path,
+    ...await downloadProjectDocumentByUrl(document.file_path),
+  };
+};
+
+const deleteDraftProjectDocumentForUser = async (userId, projectId, documentId) => {
+  if (!userId) {
+    throw new Error('An authenticated user ID is required to delete a project document');
+  }
+
+  const client = await pool.connect();
+  let transactionStarted = false;
+
+  try {
+    await client.query('BEGIN');
+    transactionStarted = true;
+    const result = await client.query(
+      `SELECT d.id, d.file_path, d.review_status
+       FROM "daybook-dev-db".project_documents AS d
+       INNER JOIN "daybook-dev-db".projects AS p ON p.id = d.project_id
+       WHERE p.engineer_id = $1 AND d.project_id = $2 AND d.id = $3
+         AND d.is_active = TRUE AND d.file_type NOT IN ('image', 'images')
+       FOR UPDATE OF d`,
+      [userId, projectId, documentId]
+    );
+    const document = result.rows[0];
+    if (!document) {
+      await client.query('ROLLBACK');
+      transactionStarted = false;
+      return { status: 'not_found' };
+    }
+
+    if (document.review_status?.toUpperCase() !== 'DRAFT') {
+      await client.query('ROLLBACK');
+      transactionStarted = false;
+      return { status: 'not_draft' };
+    }
+
+    await client.query(
+      `DELETE FROM "daybook-dev-db".project_documents
+       WHERE id = $1`,
+      [documentId]
+    );
+
+    try {
+      await deleteProjectImageByUrl(document.file_path);
+    } catch (error) {
+      console.error('Failed to delete project document from storage:', error);
+      error.status = 503;
+      throw error;
+    }
+
+    await client.query('COMMIT');
+    transactionStarted = false;
+    return { status: 'deleted' };
+  } catch (error) {
+    if (transactionStarted) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackError) {
+        console.error('Failed to roll back project document deletion:', rollbackError);
+      }
+    }
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
+const updateProjectDocumentForUser = async (
+  userId,
+  projectId,
+  documentId,
+  document,
+  replacementFile
+) => {
+  if (!userId) {
+    throw new Error('An authenticated user ID is required to update a project document');
+  }
+
+  const client = await pool.connect();
+  let uploadedFile;
+  let transactionStarted = false;
+
+  try {
+    await client.query('BEGIN');
+    transactionStarted = true;
+    const currentResult = await client.query(
+      `SELECT d.id, d.file_path, d.review_status
+       FROM "daybook-dev-db".project_documents AS d
+       INNER JOIN "daybook-dev-db".projects AS p ON p.id = d.project_id
+       WHERE p.engineer_id = $1 AND d.project_id = $2 AND d.id = $3
+         AND d.is_active = TRUE AND d.file_type NOT IN ('image', 'images')
+       FOR UPDATE OF d`,
+      [userId, projectId, documentId]
+    );
+    const currentDocument = currentResult.rows[0];
+    if (!currentDocument) {
+      await client.query('ROLLBACK');
+      transactionStarted = false;
+      return { status: 'not_found' };
+    }
+
+    const currentReviewStatus = currentDocument.review_status || 'DRAFT';
+    const normalizedCurrentStatus = currentReviewStatus.toUpperCase();
+    const normalizedRequestedStatus = document.reviewStatus?.trim().toUpperCase();
+    const lockedReviewStatuses = new Set(['APPROVED', 'REJECTED', 'ARCHIVED']);
+    if (
+      (lockedReviewStatuses.has(normalizedCurrentStatus) &&
+        normalizedRequestedStatus &&
+        normalizedRequestedStatus !== normalizedCurrentStatus) ||
+      (normalizedCurrentStatus !== 'DRAFT' && normalizedRequestedStatus === 'DRAFT')
+    ) {
+      await client.query('ROLLBACK');
+      transactionStarted = false;
+      return { status: 'review_status_locked' };
+    }
+
+    const reviewStatus = lockedReviewStatuses.has(normalizedCurrentStatus)
+      ? currentReviewStatus
+      : document.reviewStatus || currentReviewStatus;
+
+    if (replacementFile) {
+      uploadedFile = await uploadProjectDocument(projectId, replacementFile);
+    }
+    const result = await client.query(
+      `UPDATE "daybook-dev-db".project_documents
+       SET file_path = COALESCE($2, file_path),
+           title = $3,
+           description = NULLIF($4, ''),
+           file_type = $5,
+           reference_number = COALESCE(NULLIF($6, ''), 'V1.0'),
+           review_status = $7,
+           visibility = COALESCE(NULLIF($8, ''), 'PROJECT_TEAM'),
+           document_date = NULLIF($9, '')::date
+       WHERE id = $1
+       RETURNING id, file_path, title, description, file_type, reference_number,
+                 display_order, review_status, review_comments, reviewed_by,
+                 reviewed_at, visibility, document_date, expiry_date, created_by,
+                 created_at`,
+      [
+        documentId,
+        uploadedFile?.fileUrl || null,
+        document.title,
+        document.description || '',
+        document.category,
+        document.referenceNumber || '',
+        reviewStatus,
+        document.visibility || '',
+        document.date || '',
+      ]
+    );
+
+    if (uploadedFile) {
+      await deleteProjectImageByUrl(currentDocument.file_path);
+    }
+
+    await client.query('COMMIT');
+    transactionStarted = false;
+    return { status: 'updated', document: result.rows[0] };
+  } catch (error) {
+    if (transactionStarted) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackError) {
+        console.error('Failed to roll back project document update:', rollbackError);
+      }
+    }
+    if (uploadedFile) {
+      try {
+        await deleteProjectImage(uploadedFile.key);
+      } catch (cleanupError) {
+        console.error('Failed to clean up replacement document after update failure:', cleanupError);
+      }
+    }
+    throw error;
+  } finally {
+    client.release();
+  }
 };
 
 const uploadProjectDocumentsForUser = async (userId, projectId, document, files) => {
@@ -428,7 +629,10 @@ const updateProjectForUser = async (userId, projectId, project, files, removeIma
 
 module.exports = {
   createProject,
+  deleteDraftProjectDocumentForUser,
   getProjectDocumentsForUser,
+  getProjectDocumentDownloadForUser,
+  updateProjectDocumentForUser,
   getProjectForUser,
   getProjectsForUser,
   uploadProjectDocumentsForUser,

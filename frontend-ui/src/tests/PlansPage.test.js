@@ -1,14 +1,12 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import PlansPage from '../pages/plans'
 
 const mockGetPlansQuery = jest.fn()
 const mockGetCurrentSessionQuery = jest.fn()
-const mockSelectPlan = jest.fn()
 
 jest.mock('../redux/services/users/usersApi', () => ({
   useGetPlansQuery: () => mockGetPlansQuery(),
   useGetCurrentSessionQuery: () => mockGetCurrentSessionQuery(),
-  useSelectPlanMutation: () => [mockSelectPlan, { isLoading: false, error: null }],
 }))
 
 beforeEach(() => {
@@ -56,15 +54,6 @@ test('shows both billing prices for active plans and identifies the current plan
   expect(screen.getAllByText('Per month')).toHaveLength(2)
   expect(screen.getAllByText('Per year')).toHaveLength(2)
   expect(screen.queryByRole('group', { name: 'Billing period' })).not.toBeInTheDocument()
-})
-
-test('marks the current plan selected and lets the user select another plan', () => {
-  render(<PlansPage />)
-
-  expect(screen.getByRole('button', { name: 'Selected' })).toBeDisabled()
-  fireEvent.click(screen.getByRole('button', { name: 'Select plan' }))
-
-  expect(mockSelectPlan).toHaveBeenCalledWith('BASIC')
 })
 
 test('provides loading, error, and empty states', () => {

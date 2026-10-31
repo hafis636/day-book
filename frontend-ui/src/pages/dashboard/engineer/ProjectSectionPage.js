@@ -66,7 +66,11 @@ const ProjectSectionPage = () => {
   const sectionTitle = formatSectionTitle(section)
 
   return (
-    <ProjectWorkspaceLayout projectId={projectId} activePath={section}>
+    <ProjectWorkspaceLayout
+      projectId={projectId}
+      projectStatus={project.status}
+      activePath={section}
+    >
       <div className="w-full">
         <section
           aria-label="Project summary"

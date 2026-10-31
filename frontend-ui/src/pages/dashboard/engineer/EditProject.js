@@ -28,7 +28,7 @@ const EditProject = () => {
 
   if (isError || !project) {
     return (
-      <ProjectWorkspaceLayout projectId={projectId} projectName={project?.name}>
+      <ProjectWorkspaceLayout projectId={projectId} projectStatus={project?.status}>
         <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
           <ProjectBackLink />
           <h1 className="text-2xl font-bold text-slate-900">Project Not Found</h1>
@@ -41,11 +41,12 @@ const EditProject = () => {
   }
 
   return (
-    <ProjectWorkspaceLayout projectId={projectId}>
+    <ProjectWorkspaceLayout projectId={projectId} projectStatus={project.status}>
       <AddProjectForm
         key={project.id}
         project={project}
         existingImages={project.images || []}
+        readOnly={project.status?.trim().toLowerCase() === 'completed'}
         onSubmitProject={handleSubmit}
         isSaving={isSaving}
       />

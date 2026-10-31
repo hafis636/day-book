@@ -19,6 +19,8 @@ const mockGetProject = jest.fn();
 const mockGetProjectDocuments = jest.fn();
 const mockUpdateProject = jest.fn();
 const mockUploadProjectDocuments = jest.fn();
+const mockDeleteProjectDocument = jest.fn();
+const mockUpdateProjectDocument = jest.fn();
 
 jest.mock('../redux/services/users/usersApi', () => ({
   useLazyConfirmUserQuery: () => [mockCheckUserContact, { isFetching: false }],
@@ -33,6 +35,8 @@ jest.mock('../redux/services/users/usersApi', () => ({
   useGetProjectQuery: () => mockGetProject(),
   useGetProjectDocumentsQuery: () => mockGetProjectDocuments(),
   useUploadProjectDocumentsMutation: () => [mockUploadProjectDocuments, { isLoading: false }],
+  useDeleteProjectDocumentMutation: () => [mockDeleteProjectDocument, { isLoading: false }],
+  useUpdateProjectDocumentMutation: () => [mockUpdateProjectDocument, { isLoading: false }],
   useUpdateProjectMutation: () => [mockUpdateProject, { isLoading: false }],
 }));
 
@@ -456,6 +460,17 @@ test('renders the protected engineer add-projects route', () => {
 });
 
 test('renders project documents with responsive project navigation', () => {
+  const projectResponse = mockGetProject();
+  mockGetProject.mockReturnValue({
+    ...projectResponse,
+    data: {
+      ...projectResponse.data,
+      project: {
+        ...projectResponse.data.project,
+        status: 'Ongoing',
+      },
+    },
+  });
   mockGetCurrentSession.mockReturnValue({
     data: {
       user: {
@@ -479,7 +494,7 @@ test('renders project documents with responsive project navigation', () => {
   expect(within(projectSummary).getByText('Project type')).toBeInTheDocument();
   expect(within(projectSummary).getByText('Residential House')).toBeInTheDocument();
   expect(within(projectSummary).getByText('Status')).toBeInTheDocument();
-  expect(within(projectSummary).getByText('Planning')).toBeInTheDocument();
+  expect(within(projectSummary).getByText('Ongoing')).toBeInTheDocument();
   expect(screen.getByText('Swipe to see more')).toBeInTheDocument();
   const projectBackLink = screen.getByRole('link', { name: 'Projects' });
   expect(projectBackLink).toHaveAttribute(
@@ -606,10 +621,47 @@ test('renders project documents with responsive project navigation', () => {
     userEvent.click(sectionLink);
     expect(screen.getByRole('heading', { name: label })).toBeInTheDocument();
     expect(within(projectSummary).getByText('Residential House')).toBeInTheDocument();
-    expect(within(projectSummary).getByText('Planning')).toBeInTheDocument();
+    expect(within(projectSummary).getByText('Ongoing')).toBeInTheDocument();
     expect(editProjectLink).toHaveAttribute('href', '/manage-projects/project-1');
   });
 });
+
+test.each(['In discussion', 'Planning'])(
+  'shows only Documents and Payments in the edit project navigation for %s projects',
+  (status) => {
+    const projectResponse = mockGetProject();
+    mockGetProject.mockReturnValue({
+      ...projectResponse,
+      data: {
+        ...projectResponse.data,
+        project: {
+          ...projectResponse.data.project,
+          status,
+        },
+      },
+    });
+    mockGetCurrentSession.mockReturnValue({
+      data: {
+        user: {
+          id: 'user-1',
+          first_name: 'Taylor',
+          last_name: 'Day',
+          email: 'taylor@example.com',
+          role: 'engineer',
+        },
+      },
+      isLoading: false,
+      refetch: jest.fn(),
+    });
+    window.history.pushState({}, '', '/manage-projects/project-1');
+    render(<App />);
+
+    const sectionNavigation = screen.getByRole('navigation', { name: 'Sections' });
+    expect(
+      within(sectionNavigation).getAllByRole('link').map((link) => link.textContent)
+    ).toEqual(['Documents', 'Payments']);
+  }
+);
 
 test('shows Edit Project first in section navigation while a project section is loading', () => {
   mockGetCurrentSession.mockReturnValue({
@@ -839,6 +891,79 @@ test('loads and displays the current user projects on the manage projects page',
   expect(updateFormData.get('coverImage')).toBeInstanceOf(File);
   expect(updateFormData.get('removeImageUrls')).toBe(
     JSON.stringify(['https://example.com/harbor-detail.jpg'])
+  );
+});
+
+test('opens completed projects in a read-only view with the project name as its heading', () => {
+  mockGetCurrentSession.mockReturnValue({
+    data: {
+      user: {
+        id: 'user-1',
+        first_name: 'Taylor',
+        last_name: 'Day',
+        email: 'taylor@example.com',
+        role: 'engineer',
+      },
+    },
+    isLoading: false,
+    refetch: jest.fn(),
+  });
+  mockGetProjects.mockReturnValue({
+    data: {
+      projects: [
+        {
+          id: 'project-completed',
+          name: 'Completed House',
+          status: 'Completed',
+          project_type: 'Residential House',
+          cover_image: null,
+        },
+      ],
+    },
+    isLoading: false,
+    isError: false,
+  });
+  const projectResponse = mockGetProject();
+  mockGetProject.mockReturnValue({
+    ...projectResponse,
+    data: {
+      ...projectResponse.data,
+      project: {
+        ...projectResponse.data.project,
+        id: 'project-completed',
+        name: 'Completed House',
+        status: 'Completed',
+      },
+    },
+  });
+  window.history.pushState({}, '', '/manage-projects');
+  render(<App />);
+
+  const viewLink = screen.getByRole('link', { name: 'View Completed House' });
+  expect(viewLink).toHaveAttribute('href', '/manage-projects/project-completed');
+  userEvent.click(viewLink);
+
+  expect(screen.getByRole('heading', { name: 'Completed House' })).toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: 'Edit Project' })).not.toBeInTheDocument();
+  expect(document.querySelectorAll('input, textarea, select')).toHaveLength(0);
+  expect(screen.getByText('A waterfront home')).toBeInTheDocument();
+  expect(screen.getByText('Residential House')).toBeInTheDocument();
+  expect(screen.getByText('Completed')).toBeInTheDocument();
+  expect(screen.getByText('2026-01-02')).toBeInTheDocument();
+  expect(screen.getByText('1 Harbor Road')).toBeInTheDocument();
+  expect(screen.getByRole('img', { name: 'Harbor cover' })).toHaveAttribute(
+    'src',
+    'https://example.com/harbor-house.jpg'
+  );
+  expect(screen.getByRole('img', { name: 'Harbor detail' })).toHaveAttribute(
+    'src',
+    'https://example.com/harbor-detail.jpg'
+  );
+  expect(screen.queryByRole('button', { name: 'Save Changes' })).not.toBeInTheDocument();
+  userEvent.click(screen.getByRole('link', { name: 'Documents' }));
+  expect(screen.getByRole('link', { name: 'View Project' })).toHaveAttribute(
+    'href',
+    '/manage-projects/project-completed'
   );
 });
 

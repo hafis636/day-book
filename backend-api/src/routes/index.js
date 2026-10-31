@@ -9,7 +9,10 @@ const {
 const {
   createProject,
   createProjectDocuments,
+  deleteProjectDocument,
+  downloadProjectDocument,
   getProjectDocuments,
+  updateProjectDocument,
   getProject,
   getProjects,
   parseProjectDocuments,
@@ -18,7 +21,7 @@ const {
 } = require('../controllers/projectsController');
 const requireAuthenticatedSession = require('../middleware/requireAuthenticatedSession');
 const requireNonAdmin = require('../middleware/requireNonAdmin');
-const { getPlans, selectPlan } = require('../controllers/plansController');
+const { getPlans } = require('../controllers/plansController');
 
 const router = express.Router();
 
@@ -30,7 +33,6 @@ router.post('/otp/validate', validateUserOtp, createSessionForAuthenticatedUser)
 router.get('/session', getCurrentSession);
 router.post('/session/logout', logout);
 router.get('/plans', requireAuthenticatedSession, requireNonAdmin, getPlans);
-router.patch('/plans/:planCode', requireAuthenticatedSession, requireNonAdmin, selectPlan);
 router.post(
   '/projects',
   requireAuthenticatedSession,
@@ -39,6 +41,22 @@ router.post(
 );
 router.get('/projects', requireAuthenticatedSession, getProjects);
 router.get('/projects/:id/documents', requireAuthenticatedSession, getProjectDocuments);
+router.get(
+  '/projects/:id/documents/:documentId/download',
+  requireAuthenticatedSession,
+  downloadProjectDocument
+);
+router.delete(
+  '/projects/:id/documents/:documentId',
+  requireAuthenticatedSession,
+  deleteProjectDocument
+);
+router.patch(
+  '/projects/:id/documents/:documentId',
+  requireAuthenticatedSession,
+  parseProjectDocuments,
+  updateProjectDocument
+);
 router.post(
   '/projects/:id/documents',
   requireAuthenticatedSession,

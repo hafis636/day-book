@@ -1,9 +1,5 @@
 import React from 'react'
-import {
-  useGetCurrentSessionQuery,
-  useGetPlansQuery,
-  useSelectPlanMutation,
-} from '../../redux/services/users/usersApi'
+import { useGetCurrentSessionQuery, useGetPlansQuery } from '../../redux/services/users/usersApi'
 
 const formatPrice = (price) => {
   const amount = Number(price)
@@ -16,7 +12,7 @@ const formatPrice = (price) => {
   }).format(amount)
 }
 
-const PlanCard = ({ plan, currentPlanCode, isSelecting, onSelectPlan }) => {
+const PlanCard = ({ plan, currentPlanCode }) => {
   const isCurrentPlan =
     String(plan.plan_code).trim().toLowerCase() ===
     String(currentPlanCode || '').trim().toLowerCase()
@@ -77,18 +73,6 @@ const PlanCard = ({ plan, currentPlanCode, isSelecting, onSelectPlan }) => {
             ? 'This is the plan linked to your account.'
             : 'Available for your account'}
         </p>
-        <button
-          type="button"
-          onClick={() => onSelectPlan(plan.plan_code)}
-          disabled={isCurrentPlan || isSelecting}
-          className={`mt-4 w-full rounded-lg px-4 py-3 text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700 disabled:cursor-not-allowed ${
-            isCurrentPlan
-              ? 'bg-slate-100 text-slate-500'
-              : 'bg-blue-700 text-white hover:bg-blue-800 disabled:bg-slate-300'
-          }`}
-        >
-          {isCurrentPlan ? 'Selected' : isSelecting ? 'Updating...' : 'Select plan'}
-        </button>
       </div>
     </article>
   )
@@ -97,12 +81,8 @@ const PlanCard = ({ plan, currentPlanCode, isSelecting, onSelectPlan }) => {
 const PlansPage = () => {
   const { data: session } = useGetCurrentSessionQuery()
   const { data, isLoading, isError, refetch } = useGetPlansQuery()
-  const [selectPlan, { isLoading: isSelecting, error: selectionError }] =
-    useSelectPlanMutation()
   const plans = data?.plans || []
   const currentPlanCode = session?.user?.user_plan
-  const selectionErrorMessage =
-    selectionError?.data?.error || 'Could not update your plan. Please try again.'
 
   return (
     <section className="mx-auto w-full max-w-6xl">
@@ -120,12 +100,6 @@ const PlansPage = () => {
           </p>
         </div>
       </header>
-
-      {selectionError && (
-        <p className="mt-6 border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">
-          {selectionErrorMessage}
-        </p>
-      )}
 
       {isLoading ? (
         <div
@@ -177,8 +151,6 @@ const PlansPage = () => {
               key={plan.plan_code}
               plan={plan}
               currentPlanCode={currentPlanCode}
-              isSelecting={isSelecting}
-              onSelectPlan={selectPlan}
             />
           ))}
         </div>

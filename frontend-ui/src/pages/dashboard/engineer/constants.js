@@ -31,7 +31,6 @@ export const REVIEW_STATUSES = [
   'Resubmitted',
   'Approved',
   'Rejected',
-  'Superseded',
   'Archived',
 ]
 

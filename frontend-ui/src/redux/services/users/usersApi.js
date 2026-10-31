@@ -49,13 +49,6 @@ export const usersApi = createApi({
       query: () => "/plans",
       providesTags: ["Plans"],
     }),
-    selectPlan: builder.mutation({
-      query: (planCode) => ({
-        url: `/plans/${encodeURIComponent(planCode)}`,
-        method: "PATCH",
-      }),
-      invalidatesTags: ["Session"],
-    }),
     logout: builder.mutation({
       query: () => ({
         url: "/session/logout",
@@ -103,6 +96,25 @@ export const usersApi = createApi({
         { type: "ProjectDocuments", id: projectId },
       ],
     }),
+    deleteProjectDocument: builder.mutation({
+      query: ({ projectId, documentId }) => ({
+        url: `/projects/${projectId}/documents/${documentId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (result, error, { projectId }) => [
+        { type: "ProjectDocuments", id: projectId },
+      ],
+    }),
+    updateProjectDocument: builder.mutation({
+      query: ({ projectId, documentId, formData }) => ({
+        url: `/projects/${projectId}/documents/${documentId}`,
+        method: "PATCH",
+        body: formData,
+      }),
+      invalidatesTags: (result, error, { projectId }) => [
+        { type: "ProjectDocuments", id: projectId },
+      ],
+    }),
   }),
 });
 
@@ -114,7 +126,6 @@ export const {
   useValidateOtpMutation,
   useGetCurrentSessionQuery,
   useGetPlansQuery,
-  useSelectPlanMutation,
   useLogoutMutation,
   useCreateProjectMutation,
   useGetProjectsQuery,
@@ -122,4 +133,6 @@ export const {
   useUpdateProjectMutation,
   useGetProjectDocumentsQuery,
   useUploadProjectDocumentsMutation,
+  useDeleteProjectDocumentMutation,
+  useUpdateProjectDocumentMutation,
 } = usersApi;

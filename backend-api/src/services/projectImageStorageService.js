@@ -1,4 +1,9 @@
-const { S3Client, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand,
+} = require('@aws-sdk/client-s3');
 const { randomUUID } = require('crypto');
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
@@ -153,6 +158,49 @@ const uploadProjectDocument = async (projectId, file) => {
   };
 };
 
+const getProjectDocumentKeyFromUrl = (fileUrl) => {
+  const config = getStorageConfig();
+  const file = new URL(fileUrl);
+  const storage = new URL(config.supabaseUrl);
+  if (file.origin !== storage.origin) {
+    throw new Error('Project document URL does not belong to configured storage');
+  }
+
+  const segments = file.pathname.split('/').filter(Boolean).map(decodeURIComponent);
+  const objectIndex = segments.findIndex(
+    (segment, index) =>
+      segment === 'storage' &&
+      segments[index + 1] === 'v1' &&
+      segments[index + 2] === 'object'
+  );
+  if (objectIndex < 0) throw new Error('Invalid project document URL');
+
+  let bucketIndex = objectIndex + 3;
+  if (segments[bucketIndex] === 'public') bucketIndex += 1;
+  if (segments[bucketIndex] !== config.bucket || bucketIndex + 1 >= segments.length) {
+    throw new Error('Project document URL does not belong to configured storage bucket');
+  }
+
+  return segments.slice(bucketIndex + 1).join('/');
+};
+
+const downloadProjectDocumentByUrl = async (fileUrl) => {
+  const config = getStorageConfig();
+  const key = getProjectDocumentKeyFromUrl(fileUrl);
+  const result = await getClient(config).send(
+    new GetObjectCommand({
+      Bucket: config.bucket,
+      Key: key,
+    })
+  );
+
+  return {
+    body: result.Body,
+    contentType: result.ContentType,
+    contentLength: result.ContentLength,
+  };
+};
+
 const deleteProjectImage = async (key) => {
   const config = getStorageConfig();
   await getClient(config).send(
@@ -164,29 +212,7 @@ const deleteProjectImage = async (key) => {
 };
 
 const deleteProjectImageByUrl = async (imageUrl) => {
-  const config = getStorageConfig();
-  const image = new URL(imageUrl);
-  const storage = new URL(config.supabaseUrl);
-  if (image.origin !== storage.origin) {
-    throw new Error('Project image URL does not belong to configured storage');
-  }
-
-  const segments = image.pathname.split('/').filter(Boolean).map(decodeURIComponent);
-  const objectIndex = segments.findIndex(
-    (segment, index) =>
-      segment === 'storage' &&
-      segments[index + 1] === 'v1' &&
-      segments[index + 2] === 'object'
-  );
-  if (objectIndex < 0) throw new Error('Invalid project image URL');
-
-  let bucketIndex = objectIndex + 3;
-  if (segments[bucketIndex] === 'public') bucketIndex += 1;
-  if (segments[bucketIndex] !== config.bucket || bucketIndex + 1 >= segments.length) {
-    throw new Error('Project image URL does not belong to configured storage bucket');
-  }
-
-  await deleteProjectImage(segments.slice(bucketIndex + 1).join('/'));
+  await deleteProjectImage(getProjectDocumentKeyFromUrl(imageUrl));
 };
 
 module.exports = {
@@ -195,6 +221,7 @@ module.exports = {
   MAX_IMAGE_SIZE,
   deleteProjectImage,
   deleteProjectImageByUrl,
+  downloadProjectDocumentByUrl,
   toPublicImageUrl,
   uploadProjectDocument,
   uploadProjectImage,

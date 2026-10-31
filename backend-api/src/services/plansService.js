@@ -11,21 +11,4 @@ const getActivePlans = async () => {
   return result.rows;
 };
 
-const updateUserPlan = async (userId, planCode) => {
-  const result = await query(
-    `UPDATE "daybook-dev-db".users AS u
-     SET user_plan = $1
-     WHERE u.id = $2
-       AND EXISTS (
-         SELECT 1
-         FROM "daybook-dev-db".subscription_plans AS p
-         WHERE p.plan_code = $1 AND p.is_active = TRUE
-       )
-     RETURNING u.user_plan`,
-    [planCode, userId]
-  );
-
-  return result.rows[0] || null;
-};
-
-module.exports = { getActivePlans, updateUserPlan };
+module.exports = { getActivePlans };
