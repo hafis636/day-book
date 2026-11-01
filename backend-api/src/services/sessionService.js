@@ -33,7 +33,7 @@ const getSessionUser = async (token) => {
        AND s.revoked_at IS NULL
        AND s.expires_at > NOW()
      RETURNING u.id, u.first_name, u.last_name, u.email, u.username, u.user_plan,
-               p.plan_name AS user_plan_name, r.name AS role,
+               p.plan_name AS user_plan_name, r.role_code AS role, r.role_name,
                s.expires_at`,
     [tokenHash]
   );

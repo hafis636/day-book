@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import Dashboard from '../pages/dashboard'
+import Dashboard from '../pages/users'
 
 const mockGetCurrentSessionQuery = jest.fn()
 
@@ -8,7 +8,7 @@ jest.mock('../redux/services/users/usersApi', () => ({
   useGetCurrentSessionQuery: () => mockGetCurrentSessionQuery(),
 }))
 
-const renderDashboard = (userPlan) => {
+const renderDashboard = (userPlan, role) => {
   mockGetCurrentSessionQuery.mockReturnValue({
     data: {
       user: {
@@ -16,6 +16,7 @@ const renderDashboard = (userPlan) => {
         last_name: 'Day',
         email: 'taylor@example.com',
         user_plan: userPlan,
+        role,
       },
     },
   })
@@ -36,6 +37,13 @@ test.each(['BASIC', 'silver'])('shows a plans link for the %s plan', (userPlan) 
 
 test('does not show the plans banner for other plans', () => {
   renderDashboard('GOLD')
+
+  expect(screen.queryByRole('complementary', { name: 'Plan information' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('link', { name: /view plans/i })).not.toBeInTheDocument()
+})
+
+test('does not show the plans banner for admins', () => {
+  renderDashboard('BASIC', 'admin')
 
   expect(screen.queryByRole('complementary', { name: 'Plan information' })).not.toBeInTheDocument()
   expect(screen.queryByRole('link', { name: /view plans/i })).not.toBeInTheDocument()

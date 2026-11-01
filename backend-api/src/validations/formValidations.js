@@ -1,3 +1,5 @@
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const LOGIN_VALIDATION = ({ username, password } = {}) => {
   if (
     typeof username !== 'string' ||
@@ -15,7 +17,7 @@ const REGISTER_VALIDATION = ({ firstName, lastName, email, mobile, password, rol
   if (![firstName, lastName, email, mobile, password].every((value) => typeof value === 'string' && value.trim())) {
     return 'All registration fields are required';
   }
-  if (!/^\d+$/.test(String(roleId || ''))) {
+  if (typeof roleId !== 'string' || !UUID_PATTERN.test(roleId)) {
     return 'A valid role is required';
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {

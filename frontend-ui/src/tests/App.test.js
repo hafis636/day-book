@@ -59,9 +59,9 @@ beforeEach(() => {
   });
   mockGetRoles.mockReturnValue({
     data: [
-      { id: 1, name: 'admin' },
-      { id: 2, name: 'shop owner' },
-      { id: 3, name: 'editor' },
+      { id: '550e8400-e29b-41d4-a716-446655440000', role_name: 'admin', role_code: 'ADMIN' },
+      { id: '550e8400-e29b-41d4-a716-446655440001', role_name: 'shop owner', role_code: 'SHOP_OWNER' },
+      { id: '550e8400-e29b-41d4-a716-446655440002', role_name: 'editor', role_code: 'EDITOR' },
     ],
     isLoading: false,
     isError: false,
@@ -154,9 +154,9 @@ test('loads registration role options from the roles API', () => {
     </MemoryRouter>
   );
 
-  expect(screen.getByRole('option', { name: 'Admin' })).toHaveValue('1');
-  expect(screen.getByRole('option', { name: 'Shop Owner' })).toHaveValue('2');
-  expect(screen.getByRole('option', { name: 'Editor' })).toHaveValue('3');
+  expect(screen.getByRole('option', { name: 'Admin' })).toHaveValue('550e8400-e29b-41d4-a716-446655440000');
+  expect(screen.getByRole('option', { name: 'Shop Owner' })).toHaveValue('550e8400-e29b-41d4-a716-446655440001');
+  expect(screen.getByRole('option', { name: 'Editor' })).toHaveValue('550e8400-e29b-41d4-a716-446655440002');
 });
 
 test('keeps the role dropdown disabled while roles are loading or unavailable', () => {
@@ -196,7 +196,11 @@ test('keeps the role dropdown disabled while roles are loading or unavailable', 
 
 test('uses cached role options when a background refresh is loading or fails', () => {
   mockGetRoles.mockReturnValue({
-    data: [{ id: 2, name: 'shop owner' }],
+    data: [{
+      id: '550e8400-e29b-41d4-a716-446655440001',
+      role_name: 'shop owner',
+      role_code: 'SHOP_OWNER',
+    }],
     isLoading: false,
     isFetching: true,
     isError: false,
@@ -210,10 +214,14 @@ test('uses cached role options when a background refresh is loading or fails', (
   );
 
   expect(screen.getByLabelText(/^role/i)).toBeEnabled();
-  expect(screen.getByRole('option', { name: 'Shop Owner' })).toHaveValue('2');
+  expect(screen.getByRole('option', { name: 'Shop Owner' })).toHaveValue('550e8400-e29b-41d4-a716-446655440001');
 
   mockGetRoles.mockReturnValue({
-    data: [{ id: 2, name: 'shop owner' }],
+    data: [{
+      id: '550e8400-e29b-41d4-a716-446655440001',
+      role_name: 'shop owner',
+      role_code: 'SHOP_OWNER',
+    }],
     isLoading: false,
     isFetching: false,
     isError: true,
@@ -227,7 +235,7 @@ test('uses cached role options when a background refresh is loading or fails', (
   );
 
   expect(screen.getByLabelText(/^role/i)).toBeEnabled();
-  expect(screen.getByRole('option', { name: 'Shop Owner' })).toHaveValue('2');
+  expect(screen.getByRole('option', { name: 'Shop Owner' })).toHaveValue('550e8400-e29b-41d4-a716-446655440001');
   expect(screen.getByRole('alert')).toHaveTextContent(/unable to load roles/i);
 });
 
@@ -246,7 +254,9 @@ test('submits the selected role ID during registration', async () => {
   fireEvent.change(screen.getByLabelText(/mobile number/i), { target: { value: '1234567890' } });
   fireEvent.change(screen.getByLabelText(/^password/i), { target: { value: 'Password1!' } });
   fireEvent.change(screen.getByLabelText(/confirm password/i), { target: { value: 'Password1!' } });
-  fireEvent.change(screen.getByLabelText(/^role/i), { target: { value: '2' } });
+  fireEvent.change(screen.getByLabelText(/^role/i), {
+    target: { value: '550e8400-e29b-41d4-a716-446655440001' },
+  });
   fireEvent.click(screen.getByRole('button', { name: /create account|register/i }));
 
   expect(mockRegisterUser).toHaveBeenCalledWith({
@@ -255,7 +265,7 @@ test('submits the selected role ID during registration', async () => {
     email: 'casey@example.com',
     mobile: '1234567890',
     password: 'Password1!',
-    roleId: '2',
+    roleId: '550e8400-e29b-41d4-a716-446655440001',
   });
 });
 

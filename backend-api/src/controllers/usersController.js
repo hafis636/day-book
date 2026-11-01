@@ -28,10 +28,6 @@ const registerUser = async (req, res) => {
   if (validationError) {
     return res.status(400).json({ error: validationError });
   }
-  /*if (roleId === '1') {
-    return res.status(403).json({ error: 'Admin accounts can only be created by an administrator' });
-  }*/
-
   try {
     if (!(await usersService.roleIdExists(roleId))) {
       return res.status(400).json({ error: 'Invalid role' });

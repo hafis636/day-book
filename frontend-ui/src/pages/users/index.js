@@ -29,7 +29,8 @@ const Dashboard = () => {
         </p>
       )}
 
-      {[user.user_plan_name, user.user_plan].some(isBasicOrSilverPlan) && (
+      {String(user.role || '').trim().toLowerCase() !== 'admin' &&
+        [user.user_plan_name, user.user_plan].some(isBasicOrSilverPlan) && (
         <aside
           aria-label="Plan information"
           className="mt-8 flex flex-col gap-5 overflow-hidden rounded-xl border border-blue-200 bg-blue-50 p-6 sm:flex-row sm:items-center sm:justify-between"

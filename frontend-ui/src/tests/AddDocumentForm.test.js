@@ -29,8 +29,8 @@ jest.mock('../redux/services/users/usersApi', () => ({
   }),
 }))
 
-import AddDocumentForm from '../pages/dashboard/engineer/forms/AddDocumentForm'
-import DocumentsPage from '../pages/dashboard/engineer/sections/DocumentsPage'
+import AddDocumentForm from '../pages/users/engineers/forms/AddDocumentForm'
+import DocumentsPage from '../pages/users/engineers/sections/DocumentsPage'
 
 beforeEach(() => {
   mockUploadProjectDocuments = jest.fn()

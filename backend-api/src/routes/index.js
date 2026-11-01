@@ -21,7 +21,13 @@ const {
 } = require('../controllers/projectsController');
 const requireAuthenticatedSession = require('../middleware/requireAuthenticatedSession');
 const requireNonAdmin = require('../middleware/requireNonAdmin');
-const { getPlans } = require('../controllers/plansController');
+const requireAdmin = require('../middleware/requireAdmin');
+const { getPlans, getAdminPlans, updateAdminPlan } = require('../controllers/plansController');
+const {
+  getAdminRoles,
+  createAdminRole,
+  updateAdminRole,
+} = require('../controllers/rolesController');
 
 const router = express.Router();
 
@@ -33,6 +39,21 @@ router.post('/otp/validate', validateUserOtp, createSessionForAuthenticatedUser)
 router.get('/session', getCurrentSession);
 router.post('/session/logout', logout);
 router.get('/plans', requireAuthenticatedSession, requireNonAdmin, getPlans);
+router.get('/admin/plans', requireAuthenticatedSession, requireAdmin, getAdminPlans);
+router.patch(
+  '/admin/plans/:planCode',
+  requireAuthenticatedSession,
+  requireAdmin,
+  updateAdminPlan
+);
+router.get('/admin/roles', requireAuthenticatedSession, requireAdmin, getAdminRoles);
+router.post('/admin/roles', requireAuthenticatedSession, requireAdmin, createAdminRole);
+router.patch(
+  '/admin/roles/:roleId',
+  requireAuthenticatedSession,
+  requireAdmin,
+  updateAdminRole
+);
 router.post(
   '/projects',
   requireAuthenticatedSession,

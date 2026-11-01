@@ -1,24 +1,48 @@
-const { query } = require('../config/db');
+const { pool, query } = require('../config/db');
 const bcrypt = require('bcryptjs');
 
 const registerUser = async ({ firstName, lastName, email, mobile, password, roleId }) => {
   const passwordHash = await bcrypt.hash(password, 12);
-  const result = await query(
-    `WITH inserted_user AS (
-       INSERT INTO "daybook-dev-db".users
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+    const insertedUser = await client.query(
+      `INSERT INTO "daybook-dev-db".users
          (first_name, last_name, email, username, mobile_number, password_hash, role_id)
        VALUES ($1, $2, $3, $3, $4, $5, $6)
-       RETURNING id
-     )
-     SELECT u.id, u.first_name, u.last_name, u.email, u.username,
-            u.mobile_number, r.name AS role
-     FROM inserted_user AS created
-     INNER JOIN "daybook-dev-db".users AS u ON u.id = created.id
-     INNER JOIN "daybook-dev-db".roles AS r ON r.id = u.role_id`,
-    [firstName.trim(), lastName.trim(), email.trim().toLowerCase(), mobile.trim(), passwordHash, roleId]
-  );
+       RETURNING id`,
+      [firstName.trim(), lastName.trim(), email.trim().toLowerCase(), mobile.trim(), passwordHash, roleId]
+    );
 
-  return result.rows[0];
+    await client.query(
+      `UPDATE "daybook-dev-db".users AS u
+       SET user_plan = CASE
+         WHEN UPPER(r.role_code) = 'ADMIN' THEN 'ADMIN'
+         ELSE 'BASIC'
+       END
+       FROM "daybook-dev-db".roles AS r
+       WHERE u.id = $1
+         AND r.id = u.role_id`,
+      [insertedUser.rows[0].id]
+    );
+
+    const result = await client.query(
+      `SELECT u.id, u.first_name, u.last_name, u.email, u.username,
+              u.mobile_number, r.role_code AS role, r.role_name
+       FROM "daybook-dev-db".users AS u
+       INNER JOIN "daybook-dev-db".roles AS r ON r.id = u.role_id
+       WHERE u.id = $1`,
+      [insertedUser.rows[0].id]
+    );
+    await client.query('COMMIT');
+    return result.rows[0];
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 };
 
 const authenticateUser = async (username, password) => {
@@ -40,7 +64,7 @@ const authenticateUser = async (username, password) => {
 
 const getRoles = async () => {
   const result = await query(
-    'SELECT id, name FROM "daybook-dev-db".roles ORDER BY name',
+    'SELECT id, role_name, role_code FROM "daybook-dev-db".roles ORDER BY role_name',
     []
   );
 
@@ -59,7 +83,7 @@ const roleIdExists = async (roleId) => {
 const getUserById = async (id) => {
   const result = await query(
     `SELECT u.id, u.first_name, u.last_name, u.email, u.mobile_number,
-            r.name AS role, u.created_at, u.username
+            r.role_name, r.role_code AS role, u.created_at, u.username
      FROM "daybook-dev-db".users AS u
      INNER JOIN "daybook-dev-db".roles AS r ON r.id = u.role_id
      WHERE u.id = $1`,
@@ -72,7 +96,7 @@ const getUserById = async (id) => {
 const getUsers = async () => {
   const result = await query(
     `SELECT u.id, u.first_name, u.last_name, u.email, u.mobile_number,
-            r.name AS role, u.created_at, u.username
+            r.role_name, r.role_code AS role, u.created_at, u.username
      FROM "daybook-dev-db".users AS u
      INNER JOIN "daybook-dev-db".roles AS r ON r.id = u.role_id`,
     []

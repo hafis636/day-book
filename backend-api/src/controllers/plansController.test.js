@@ -1,0 +1,75 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+
+process.env.DATABASE_URL ||= 'postgresql://localhost:5432/test';
+
+const plansService = require('../services/plansService');
+const { updateAdminPlan } = require('./plansController');
+
+const createResponse = () => ({
+  statusCode: 200,
+  status(code) {
+    this.statusCode = code;
+    return this;
+  },
+  json(body) {
+    this.body = body;
+    return this;
+  },
+});
+
+const validPlan = {
+  plan_name: 'Basic Plus',
+  description: 'For getting started.',
+  monthly_price: 249,
+  yearly_price: 2499,
+  is_active: true,
+};
+
+test('rejects attempts to modify the ADMIN plan before persistence', async (t) => {
+  const originalUpdate = plansService.updateCustomerPlan;
+  plansService.updateCustomerPlan = async () => {
+    assert.fail('the admin plan must never reach persistence');
+  };
+  t.after(() => {
+    plansService.updateCustomerPlan = originalUpdate;
+  });
+
+  const response = createResponse();
+  await updateAdminPlan(
+    { params: { planCode: 'admin' }, body: validPlan },
+    response
+  );
+
+  assert.equal(response.statusCode, 403);
+  assert.match(response.body.error, /admin plan cannot be modified/i);
+});
+
+test('validates input and persists an allowed customer plan update', async (t) => {
+  const originalUpdate = plansService.updateCustomerPlan;
+  let updateArgs;
+  plansService.updateCustomerPlan = async (...args) => {
+    updateArgs = args;
+    return { plan_code: args[0], ...args[1] };
+  };
+  t.after(() => {
+    plansService.updateCustomerPlan = originalUpdate;
+  });
+
+  const invalidResponse = createResponse();
+  await updateAdminPlan(
+    { params: { planCode: 'BASIC' }, body: { ...validPlan, is_active: 'yes' } },
+    invalidResponse
+  );
+  assert.equal(invalidResponse.statusCode, 400);
+  assert.equal(updateArgs, undefined);
+
+  const response = createResponse();
+  await updateAdminPlan(
+    { params: { planCode: 'BASIC' }, body: validPlan },
+    response
+  );
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(updateArgs, ['BASIC', validPlan]);
+  assert.equal(response.body.plan.plan_code, 'BASIC');
+});

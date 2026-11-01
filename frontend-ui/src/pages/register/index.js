@@ -244,7 +244,7 @@ function Register() {
               <option value="">Select a role</option>
               {roles.map((role) => (
                 <option key={role.id} value={role.id}>
-                  {role.name.replace(/\b\w/g, (character) => character.toUpperCase())}
+                  {role.role_name.replace(/\b\w/g, (character) => character.toUpperCase())}
                 </option>
               ))}
             </select>

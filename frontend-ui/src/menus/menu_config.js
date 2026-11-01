@@ -21,7 +21,11 @@ export const menuConfig = {
     ],
   },
   admin: {
-    left: [{ label: 'Dashboard', path: '/dashboard' }],
+    left: [
+      { label: 'Dashboard', path: '/dashboard' },
+      { label: 'Modify plans', path: '/modify-plans' },
+      { label: 'Roles & Permissions', path: '/roles-permissions' },
+    ],
   },
 }
 

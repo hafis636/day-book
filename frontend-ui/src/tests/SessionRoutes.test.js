@@ -44,3 +44,31 @@ test('denies the admin role access to plans', () => {
     screen.getByRole('heading', { name: /you don’t have permission to view this page/i })
   ).toBeInTheDocument()
 })
+
+test('allows administrators and denies other roles on an admin-only route', () => {
+  const renderAdminRoute = (role) => {
+    mockGetCurrentSessionQuery.mockReturnValue({
+      data: { user: { id: 'user-1', role } },
+      isLoading: false,
+      refetch: jest.fn(),
+    })
+
+    return render(
+      <MemoryRouter>
+        <ProtectedRoute allowedRoles={['admin']}>
+          <h1>Modify plans</h1>
+        </ProtectedRoute>
+      </MemoryRouter>
+    )
+  }
+
+  const { unmount } = renderAdminRoute('admin')
+  expect(screen.getByRole('heading', { name: 'Modify plans' })).toBeInTheDocument()
+  unmount()
+
+  renderAdminRoute('engineer')
+  expect(screen.queryByRole('heading', { name: 'Modify plans' })).not.toBeInTheDocument()
+  expect(
+    screen.getByRole('heading', { name: /you don’t have permission to view this page/i })
+  ).toBeInTheDocument()
+})

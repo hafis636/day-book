@@ -3,7 +3,7 @@ import { API_BASE_URL } from "../../../config/api";
 
 export const usersApi = createApi({
   reducerPath: "usersApi",
-  tagTypes: ["Session", "Project", "ProjectDocuments", "Plans"],
+  tagTypes: ["Session", "Project", "ProjectDocuments", "Plans", "AdminPlans", "Roles"],
   baseQuery: fetchBaseQuery({
     baseUrl: API_BASE_URL,
     credentials: "include",
@@ -26,6 +26,27 @@ export const usersApi = createApi({
     }),
     getRoles: builder.query({
       query: () => "/roles",
+      providesTags: ["Roles"],
+    }),
+    getAdminRoles: builder.query({
+      query: () => "/admin/roles",
+      providesTags: ["Roles"],
+    }),
+    createAdminRole: builder.mutation({
+      query: (role) => ({
+        url: "/admin/roles",
+        method: "POST",
+        body: role,
+      }),
+      invalidatesTags: ["Roles"],
+    }),
+    updateAdminRole: builder.mutation({
+      query: ({ roleId, ...role }) => ({
+        url: `/admin/roles/${encodeURIComponent(roleId)}`,
+        method: "PATCH",
+        body: role,
+      }),
+      invalidatesTags: ["Roles"],
     }),
     confirmUser: builder.query({
       query: (contact) => ({
@@ -48,6 +69,18 @@ export const usersApi = createApi({
     getPlans: builder.query({
       query: () => "/plans",
       providesTags: ["Plans"],
+    }),
+    getAdminPlans: builder.query({
+      query: () => "/admin/plans",
+      providesTags: ["AdminPlans"],
+    }),
+    updateAdminPlan: builder.mutation({
+      query: ({ planCode, ...plan }) => ({
+        url: `/admin/plans/${encodeURIComponent(planCode)}`,
+        method: "PATCH",
+        body: plan,
+      }),
+      invalidatesTags: ["AdminPlans"],
     }),
     logout: builder.mutation({
       query: () => ({
@@ -122,10 +155,15 @@ export const {
   useLoginUserMutation,
   useRegisterUserMutation,
   useGetRolesQuery,
+  useGetAdminRolesQuery,
+  useCreateAdminRoleMutation,
+  useUpdateAdminRoleMutation,
   useLazyConfirmUserQuery,
   useValidateOtpMutation,
   useGetCurrentSessionQuery,
   useGetPlansQuery,
+  useGetAdminPlansQuery,
+  useUpdateAdminPlanMutation,
   useLogoutMutation,
   useCreateProjectMutation,
   useGetProjectsQuery,

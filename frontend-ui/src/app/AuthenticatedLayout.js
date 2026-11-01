@@ -51,6 +51,7 @@ const AuthenticatedLayout = ({ children }) => {
             </div>
             <TopMenu
               role={user.role}
+              roleName={user.role_name}
               displayName={displayName}
               isLoading={isLoading}
               onLogout={handleLogout}
