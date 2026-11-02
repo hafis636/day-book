@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 process.env.DATABASE_URL ||= 'postgresql://localhost:5432/test';
 
 const plansService = require('../services/plansService');
-const { updateAdminPlan } = require('./plansController');
+const { selectPlan, updateAdminPlan } = require('./plansController');
 
 const createResponse = () => ({
   statusCode: 200,
@@ -25,6 +25,47 @@ const validPlan = {
   yearly_price: 2499,
   is_active: true,
 };
+
+test('selects an active plan for the authenticated user', async (t) => {
+  const originalSelect = plansService.selectCustomerPlan;
+  let selectArgs;
+  plansService.selectCustomerPlan = async (...args) => {
+    selectArgs = args;
+    return 'SILVER';
+  };
+  t.after(() => {
+    plansService.selectCustomerPlan = originalSelect;
+  });
+
+  const response = createResponse();
+  await selectPlan(
+    { params: { planCode: 'silver' }, authenticatedUser: { id: 'user-id' } },
+    response
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(selectArgs, ['user-id', 'silver']);
+  assert.deepEqual(response.body, { user_plan: 'SILVER' });
+});
+
+test('rejects invalid and unavailable plan selections', async (t) => {
+  const originalSelect = plansService.selectCustomerPlan;
+  plansService.selectCustomerPlan = async () => null;
+  t.after(() => {
+    plansService.selectCustomerPlan = originalSelect;
+  });
+
+  const invalidResponse = createResponse();
+  await selectPlan({ params: { planCode: ' ' }, authenticatedUser: { id: 'user-id' } }, invalidResponse);
+  assert.equal(invalidResponse.statusCode, 400);
+
+  const unavailableResponse = createResponse();
+  await selectPlan(
+    { params: { planCode: 'ADMIN' }, authenticatedUser: { id: 'user-id' } },
+    unavailableResponse
+  );
+  assert.equal(unavailableResponse.statusCode, 404);
+});
 
 test('rejects attempts to modify the ADMIN plan before persistence', async (t) => {
   const originalUpdate = plansService.updateCustomerPlan;

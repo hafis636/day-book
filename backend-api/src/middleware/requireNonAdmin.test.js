@@ -34,7 +34,7 @@ test('allows every non-admin authenticated role', () => {
   let nextCalled = false;
 
   requireNonAdmin(
-    { authenticatedUser: { role: 'engineer' } },
+    { authenticatedUser: { role: 'engineers' } },
     {},
     () => {
       nextCalled = true;

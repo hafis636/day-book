@@ -21,6 +21,28 @@ const getAdminPlans = async (req, res) => {
   }
 };
 
+const selectPlan = async (req, res) => {
+  const planCode = String(req.params.planCode || '').trim();
+  if (!planCode || planCode.length > 50) {
+    return res.status(400).json({ error: 'A valid plan code is required' });
+  }
+
+  try {
+    const userPlan = await plansService.selectCustomerPlan(
+      req.authenticatedUser.id,
+      planCode
+    );
+    if (!userPlan) {
+      return res.status(404).json({ error: 'Active plan not found' });
+    }
+
+    return res.json({ user_plan: userPlan });
+  } catch (error) {
+    console.error('Failed to select subscription plan:', error);
+    return res.status(500).json({ error: 'Failed to select plan' });
+  }
+};
+
 const updateAdminPlan = async (req, res) => {
   const planCode = String(req.params.planCode || '').trim();
   if (!planCode || planCode.length > 50) {
@@ -47,4 +69,4 @@ const updateAdminPlan = async (req, res) => {
   }
 };
 
-module.exports = { getPlans, getAdminPlans, updateAdminPlan };
+module.exports = { getPlans, getAdminPlans, selectPlan, updateAdminPlan };

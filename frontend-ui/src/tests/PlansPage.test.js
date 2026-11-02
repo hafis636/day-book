@@ -1,17 +1,21 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import PlansPage from '../pages/plans'
 
 const mockGetPlansQuery = jest.fn()
 const mockGetCurrentSessionQuery = jest.fn()
+const mockSelectPlan = jest.fn()
 
 jest.mock('../redux/services/users/usersApi', () => ({
   useGetPlansQuery: () => mockGetPlansQuery(),
   useGetCurrentSessionQuery: () => mockGetCurrentSessionQuery(),
+  useSelectPlanMutation: () => [mockSelectPlan, { isLoading: false }],
 }))
 
 beforeEach(() => {
+  mockSelectPlan.mockReset()
+  mockSelectPlan.mockReturnValue({ unwrap: () => Promise.resolve({ user_plan: 'BASIC' }) })
   mockGetCurrentSessionQuery.mockReturnValue({
-    data: { user: { user_plan: 'SILVER' } },
+    data: { user: { plan: 'Silver' } },
   })
   mockGetPlansQuery.mockReturnValue({
     data: {
@@ -53,7 +57,22 @@ test('shows both billing prices for active plans and identifies the current plan
   expect(screen.getByText('₹4,999')).toBeInTheDocument()
   expect(screen.getAllByText('Per month')).toHaveLength(2)
   expect(screen.getAllByText('Per year')).toHaveLength(2)
+  expect(screen.getAllByRole('button', { name: 'Select' })).toHaveLength(1)
   expect(screen.queryByRole('group', { name: 'Billing period' })).not.toBeInTheDocument()
+})
+
+test('selects a different plan and reports selection errors', async () => {
+  const { rerender } = render(<PlansPage />)
+
+  fireEvent.click(screen.getByRole('button', { name: 'Select' }))
+  await waitFor(() => expect(mockSelectPlan).toHaveBeenCalledWith('BASIC'))
+
+  mockSelectPlan.mockReturnValueOnce({
+    unwrap: () => Promise.reject({ data: { error: 'Active plan not found' } }),
+  })
+  rerender(<PlansPage />)
+  fireEvent.click(screen.getByRole('button', { name: 'Select' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('Active plan not found')
 })
 
 test('provides loading, error, and empty states', () => {

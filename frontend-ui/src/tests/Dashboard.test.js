@@ -14,8 +14,8 @@ const renderDashboard = (userPlan, role) => {
       user: {
         first_name: 'Taylor',
         last_name: 'Day',
-        email: 'taylor@example.com',
-        user_plan: userPlan,
+        Email: 'taylor@example.com',
+        plan: userPlan,
         role,
       },
     },
@@ -43,7 +43,7 @@ test('does not show the plans banner for other plans', () => {
 })
 
 test('does not show the plans banner for admins', () => {
-  renderDashboard('BASIC', 'admin')
+  renderDashboard('BASIC', 'Administrator')
 
   expect(screen.queryByRole('complementary', { name: 'Plan information' })).not.toBeInTheDocument()
   expect(screen.queryByRole('link', { name: /view plans/i })).not.toBeInTheDocument()

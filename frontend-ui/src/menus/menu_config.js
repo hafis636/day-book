@@ -1,4 +1,22 @@
 import { normalizeRole } from './menuNames'
+import { hasPermission } from '../utils/permissions'
+
+const projectRoleMenu = {
+  left: [
+    { label: 'Dashboard', path: '/dashboard' },
+    {
+      label: 'Projects',
+      children: [
+        { label: 'Manage Projects', path: '/manage-projects' },
+        {
+          label: 'Add Projects',
+          path: '/add-projects',
+          permission: 'ADD_PROJECTS',
+        }
+      ]
+    }
+  ],
+}
 
 export const menuConfig = {
   default: {
@@ -8,18 +26,9 @@ export const menuConfig = {
       { label: 'Settings', path: '/settings' }
     ]
   },
-  engineer: {
-    left: [
-      { label: 'Dashboard', path: '/dashboard' },
-      {
-        label: 'Projects',
-        children: [
-          { label: 'Manage Projects', path: '/manage-projects' },
-          { label: 'Add Projects', path: '/add-projects' }
-        ]
-      }
-    ],
-  },
+  engineers: projectRoleMenu,
+  architects: projectRoleMenu,
+  'interior-designers': projectRoleMenu,
   admin: {
     left: [
       { label: 'Dashboard', path: '/dashboard' },
@@ -29,7 +38,16 @@ export const menuConfig = {
   },
 }
 
-export const getMenuItems = (role, position) => {
+const filterMenuItems = (items, permissions) =>
+  items.flatMap((item) => {
+    if (item.permission && !hasPermission(permissions, item.permission)) return []
+    if (!item.children) return [item]
+
+    const children = filterMenuItems(item.children, permissions)
+    return children.length ? [{ ...item, children }] : []
+  })
+
+export const getMenuItems = (role, position, permissions) => {
   const roleConfig = menuConfig[normalizeRole(role)]
-  return roleConfig?.[position] ?? menuConfig.default[position]
+  return filterMenuItems(roleConfig?.[position] ?? menuConfig.default[position], permissions)
 }

@@ -14,8 +14,8 @@ test('lists roles with descriptions and active status', async (t) => {
     return {
       rows: [{
         id: 'role-1',
-        role_name: 'Engineer',
-        role_code: 'ENGINEER',
+        role_name: 'Engineers',
+        role_code: 'ENGINEERS',
         description: 'Builds software',
         is_active: true,
       }],
@@ -26,7 +26,7 @@ test('lists roles with descriptions and active status', async (t) => {
   });
 
   const roles = await rolesService.getAdminRoles();
-  assert.equal(roles[0].role_name, 'Engineer');
+  assert.equal(roles[0].role_name, 'Engineers');
   assert.equal(roles[0].description, 'Builds software');
   assert.equal(roles[0].is_active, true);
   assert.match(statement.sql, /SELECT id, role_name, role_code, description, is_active/);

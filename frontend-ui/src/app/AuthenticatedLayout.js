@@ -13,8 +13,7 @@ const AuthenticatedLayout = ({ children }) => {
   const user = data.user
   const displayName =
     [user.first_name, user.last_name].filter(Boolean).join(' ') ||
-    user.username ||
-    user.email
+    user.Email
 
   const handleLogout = async () => {
     setLogoutError('')
@@ -51,7 +50,7 @@ const AuthenticatedLayout = ({ children }) => {
             </div>
             <TopMenu
               role={user.role}
-              roleName={user.role_name}
+              roleName={user.role}
               displayName={displayName}
               isLoading={isLoading}
               onLogout={handleLogout}
@@ -69,7 +68,11 @@ const AuthenticatedLayout = ({ children }) => {
             className="fixed inset-0 z-30 bg-slate-950/30 lg:hidden"
           />
         )}
-        <LeftMenu role={user.role} open={leftMenuOpen} />
+        <LeftMenu
+          role={user.role}
+          permissions={user.permissions}
+          open={leftMenuOpen}
+        />
         <main className="relative min-w-0 flex-1 px-4 py-12 sm:px-6 lg:px-8">
           {children}
           {logoutError && (

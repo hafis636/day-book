@@ -3,7 +3,7 @@ import { API_BASE_URL } from "../../../config/api";
 
 export const usersApi = createApi({
   reducerPath: "usersApi",
-  tagTypes: ["Session", "Project", "ProjectDocuments", "Plans", "AdminPlans", "Roles"],
+  tagTypes: ["Session", "Project", "ProjectDocuments", "Plans", "AdminPlans", "Roles", "Permissions"],
   baseQuery: fetchBaseQuery({
     baseUrl: API_BASE_URL,
     credentials: "include",
@@ -48,6 +48,26 @@ export const usersApi = createApi({
       }),
       invalidatesTags: ["Roles"],
     }),
+    getAdminPermissions: builder.query({
+      query: () => "/admin/permissions",
+      providesTags: ["Permissions"],
+    }),
+    createAdminPermission: builder.mutation({
+      query: (permission) => ({
+        url: "/admin/permissions",
+        method: "POST",
+        body: permission,
+      }),
+      invalidatesTags: ["Permissions"],
+    }),
+    updateAdminPermission: builder.mutation({
+      query: ({ permissionId, ...permission }) => ({
+        url: `/admin/permissions/${encodeURIComponent(String(permissionId))}`,
+        method: "PATCH",
+        body: permission,
+      }),
+      invalidatesTags: ["Permissions"],
+    }),
     confirmUser: builder.query({
       query: (contact) => ({
         url: "/otp/confirm-user",
@@ -69,6 +89,13 @@ export const usersApi = createApi({
     getPlans: builder.query({
       query: () => "/plans",
       providesTags: ["Plans"],
+    }),
+    selectPlan: builder.mutation({
+      query: (planCode) => ({
+        url: `/plans/${encodeURIComponent(planCode)}`,
+        method: "PATCH",
+      }),
+      invalidatesTags: ["Session"],
     }),
     getAdminPlans: builder.query({
       query: () => "/admin/plans",
@@ -158,10 +185,14 @@ export const {
   useGetAdminRolesQuery,
   useCreateAdminRoleMutation,
   useUpdateAdminRoleMutation,
+  useGetAdminPermissionsQuery,
+  useCreateAdminPermissionMutation,
+  useUpdateAdminPermissionMutation,
   useLazyConfirmUserQuery,
   useValidateOtpMutation,
   useGetCurrentSessionQuery,
   useGetPlansQuery,
+  useSelectPlanMutation,
   useGetAdminPlansQuery,
   useUpdateAdminPlanMutation,
   useLogoutMutation,

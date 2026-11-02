@@ -1,5 +1,9 @@
-import React from 'react'
-import { useGetCurrentSessionQuery, useGetPlansQuery } from '../../redux/services/users/usersApi'
+import React, { useState } from 'react'
+import {
+  useGetCurrentSessionQuery,
+  useGetPlansQuery,
+  useSelectPlanMutation,
+} from '../../redux/services/users/usersApi'
 
 const formatPrice = (price) => {
   const amount = Number(price)
@@ -12,10 +16,10 @@ const formatPrice = (price) => {
   }).format(amount)
 }
 
-const PlanCard = ({ plan, currentPlanCode }) => {
+const PlanCard = ({ plan, currentPlanName, onSelect, isSelecting, isSelectionPending }) => {
   const isCurrentPlan =
-    String(plan.plan_code).trim().toLowerCase() ===
-    String(currentPlanCode || '').trim().toLowerCase()
+    String(plan.plan_name).trim().toLowerCase() ===
+    String(currentPlanName || '').trim().toLowerCase()
 
   return (
     <article
@@ -73,6 +77,16 @@ const PlanCard = ({ plan, currentPlanCode }) => {
             ? 'This is the plan linked to your account.'
             : 'Available for your account'}
         </p>
+        {!isCurrentPlan && (
+          <button
+            type="button"
+            onClick={() => onSelect(plan.plan_code)}
+            disabled={isSelectionPending}
+            className="mt-4 w-full rounded-md bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isSelecting ? 'Selecting…' : 'Select'}
+          </button>
+        )}
       </div>
     </article>
   )
@@ -81,8 +95,25 @@ const PlanCard = ({ plan, currentPlanCode }) => {
 const PlansPage = () => {
   const { data: session } = useGetCurrentSessionQuery()
   const { data, isLoading, isError, refetch } = useGetPlansQuery()
+  const [selectPlan, { isLoading: isSelecting }] = useSelectPlanMutation()
+  const [selectingPlanCode, setSelectingPlanCode] = useState('')
+  const [selectionError, setSelectionError] = useState('')
   const plans = data?.plans || []
-  const currentPlanCode = session?.user?.user_plan
+  const currentPlanName = session?.user?.plan
+
+  const handleSelectPlan = async (planCode) => {
+    setSelectionError('')
+    setSelectingPlanCode(planCode)
+    try {
+      await selectPlan(planCode).unwrap()
+    } catch (error) {
+      setSelectionError(
+        error?.data?.error || 'The plan could not be selected. Please try again.'
+      )
+    } finally {
+      setSelectingPlanCode('')
+    }
+  }
 
   return (
     <section className="mx-auto w-full max-w-6xl">
@@ -145,15 +176,25 @@ const PlansPage = () => {
           </p>
         </div>
       ) : (
-        <div className="mt-8 grid items-stretch gap-5 md:grid-cols-2 xl:grid-cols-4">
-          {plans.map((plan) => (
-            <PlanCard
-              key={plan.plan_code}
-              plan={plan}
-              currentPlanCode={currentPlanCode}
-            />
-          ))}
-        </div>
+        <>
+          {selectionError && (
+            <p className="mt-6 border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">
+              {selectionError}
+            </p>
+          )}
+          <div className="mt-8 grid items-stretch gap-5 md:grid-cols-2 xl:grid-cols-4">
+            {plans.map((plan) => (
+              <PlanCard
+                key={plan.plan_code}
+                plan={plan}
+                currentPlanName={currentPlanName}
+                onSelect={handleSelectPlan}
+                isSelecting={selectingPlanCode === plan.plan_code}
+                isSelectionPending={isSelecting}
+              />
+            ))}
+          </div>
+        </>
       )}
     </section>
   )

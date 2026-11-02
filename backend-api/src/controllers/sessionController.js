@@ -54,7 +54,24 @@ const getCurrentSession = async (req, res) => {
       ...getSessionCookieOptions(req),
       expires: session.expiresAt,
     });
-    return res.json({ user: session.user });
+    const {
+      email,
+      first_name: firstName,
+      last_name: lastName,
+      role_name: role,
+      user_plan_name: plan,
+      permissions,
+    } = session.user;
+    return res.json({
+      user: {
+        Email: email,
+        first_name: firstName,
+        last_name: lastName,
+        role,
+        plan,
+        permissions,
+      },
+    });
   } catch (error) {
     console.error('Failed to load session:', error);
     return res.status(500).json({ error: 'Failed to load session' });

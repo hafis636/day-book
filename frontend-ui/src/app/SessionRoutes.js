@@ -4,6 +4,7 @@ import { useGetCurrentSessionQuery } from '../redux/services/users/usersApi'
 import AuthenticatedLayout from './AuthenticatedLayout'
 import Unauthorized from '../pages/Unauthorized'
 import { normalizeRole } from '../menus/menuNames'
+import { hasPermission } from '../utils/permissions'
 
 const SessionLoading = () => (
   <main className="grid min-h-screen place-items-center bg-slate-50">
@@ -23,7 +24,12 @@ export const HomeRedirect = () => {
   return <Navigate to={data?.user ? '/dashboard' : '/login'} replace />
 }
 
-export const ProtectedRoute = ({ children, allowedRoles, excludedRoles = [] }) => {
+export const ProtectedRoute = ({
+  children,
+  allowedRoles,
+  excludedRoles = [],
+  requiredPermission,
+}) => {
   const { data, isLoading, refetch } = useGetCurrentSessionQuery(undefined, {
     refetchOnMountOrArgChange: true,
   })
@@ -55,10 +61,12 @@ export const ProtectedRoute = ({ children, allowedRoles, excludedRoles = [] }) =
   const isExcluded = excludedRoles
     .map(normalizeRole)
     .includes(normalizeRole(data.user.role))
+  const hasRequiredPermission =
+    !requiredPermission || hasPermission(data.user.permissions, requiredPermission)
 
   return (
     <AuthenticatedLayout>
-      {hasAccess && !isExcluded ? children : <Unauthorized />}
+      {hasAccess && !isExcluded && hasRequiredPermission ? children : <Unauthorized />}
     </AuthenticatedLayout>
   )
 }

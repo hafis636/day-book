@@ -5,6 +5,7 @@ const getActivePlans = async () => {
     `SELECT plan_code, plan_name, description, monthly_price, yearly_price, is_active
      FROM "daybook-dev-db".subscription_plans
      WHERE is_active = TRUE
+       AND UPPER(TRIM(plan_code)) <> 'ADMIN'
      ORDER BY monthly_price ASC, plan_name ASC`
   );
 
@@ -20,6 +21,22 @@ const getAllCustomerPlans = async () => {
   );
 
   return result.rows;
+};
+
+const selectCustomerPlan = async (userId, planCode) => {
+  const result = await query(
+    `UPDATE "daybook-dev-db".users AS u
+     SET user_plan = p.plan_code
+     FROM "daybook-dev-db".subscription_plans AS p
+     WHERE u.id = $1
+       AND UPPER(TRIM(p.plan_code)) = UPPER(TRIM($2))
+       AND UPPER(TRIM(p.plan_code)) <> 'ADMIN'
+       AND p.is_active = TRUE
+     RETURNING u.user_plan`,
+    [userId, planCode]
+  );
+
+  return result.rows[0]?.user_plan || null;
 };
 
 const updateCustomerPlan = async (planCode, plan) => {
@@ -46,4 +63,9 @@ const updateCustomerPlan = async (planCode, plan) => {
   return result.rows[0] || null;
 };
 
-module.exports = { getActivePlans, getAllCustomerPlans, updateCustomerPlan };
+module.exports = {
+  getActivePlans,
+  getAllCustomerPlans,
+  selectCustomerPlan,
+  updateCustomerPlan,
+};

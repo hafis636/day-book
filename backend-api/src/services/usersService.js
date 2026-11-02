@@ -47,9 +47,10 @@ const registerUser = async ({ firstName, lastName, email, mobile, password, role
 
 const authenticateUser = async (username, password) => {
   const result = await query(
-    `SELECT id, password_hash
-     FROM "daybook-dev-db".users
-     WHERE LOWER(username) = $1 OR LOWER(email) = $1
+    `SELECT u.id, u.password_hash, r.role_code AS role, r.is_active AS role_is_active
+     FROM "daybook-dev-db".users AS u
+     INNER JOIN "daybook-dev-db".roles AS r ON r.id = u.role_id
+     WHERE LOWER(u.username) = $1 OR LOWER(u.email) = $1
      LIMIT 1`,
     [username.trim().toLowerCase()]
   );
@@ -59,12 +60,16 @@ const authenticateUser = async (username, password) => {
     return null;
   }
 
-  return user.id;
+  return {
+    id: user.id,
+    role: user.role,
+    roleIsActive: user.role_is_active,
+  };
 };
 
 const getRoles = async () => {
   const result = await query(
-    'SELECT id, role_name, role_code FROM "daybook-dev-db".roles ORDER BY role_name',
+    'SELECT id, role_name, role_code FROM "daybook-dev-db".roles WHERE is_active = TRUE ORDER BY role_name',
     []
   );
 
@@ -73,7 +78,7 @@ const getRoles = async () => {
 
 const roleIdExists = async (roleId) => {
   const result = await query(
-    'SELECT EXISTS (SELECT 1 FROM "daybook-dev-db".roles WHERE id = $1) AS exists',
+    'SELECT EXISTS (SELECT 1 FROM "daybook-dev-db".roles WHERE id = $1 AND is_active = TRUE) AS exists',
     [roleId]
   );
 

@@ -28,7 +28,7 @@ const renderPlansRoute = (role) => {
   )
 }
 
-test.each(['engineer', 'shop owner', 'editor'])(
+test.each(['engineers', 'shop owner', 'editor'])(
   'allows the signed-in %s role to view plans',
   (role) => {
     renderPlansRoute(role)
@@ -36,8 +36,8 @@ test.each(['engineer', 'shop owner', 'editor'])(
   }
 )
 
-test('denies the admin role access to plans', () => {
-  renderPlansRoute('admin')
+test.each(['admin', 'Administrator'])('denies the %s role access to plans', (role) => {
+  renderPlansRoute(role)
 
   expect(screen.queryByRole('heading', { name: 'Plans' })).not.toBeInTheDocument()
   expect(
@@ -62,11 +62,11 @@ test('allows administrators and denies other roles on an admin-only route', () =
     )
   }
 
-  const { unmount } = renderAdminRoute('admin')
+  const { unmount } = renderAdminRoute('Administrator')
   expect(screen.getByRole('heading', { name: 'Modify plans' })).toBeInTheDocument()
   unmount()
 
-  renderAdminRoute('engineer')
+  renderAdminRoute('engineers')
   expect(screen.queryByRole('heading', { name: 'Modify plans' })).not.toBeInTheDocument()
   expect(
     screen.getByRole('heading', { name: /you don’t have permission to view this page/i })

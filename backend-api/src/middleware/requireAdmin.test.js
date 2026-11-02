@@ -32,7 +32,7 @@ test('allows an authenticated administrator', () => {
 
 test('rejects non-admin users', () => {
   const response = createResponse();
-  requireAdmin({ authenticatedUser: { role: 'engineer' } }, response, () => {
+  requireAdmin({ authenticatedUser: { role: 'engineers' } }, response, () => {
     assert.fail('next should not be called');
   });
 

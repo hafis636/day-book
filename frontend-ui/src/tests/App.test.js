@@ -341,7 +341,7 @@ test('redirects the base URL to the dashboard when a session exists', () => {
         id: 'user-1',
         first_name: 'Taylor',
         last_name: 'Day',
-        email: 'taylor@example.com',
+        Email: 'taylor@example.com',
         role: 'editor',
       },
     },
@@ -363,7 +363,8 @@ test('opens role-specific left and top menus on the dashboard', () => {
         first_name: 'Taylor',
         last_name: 'Day',
         email: 'taylor@example.com',
-        role: 'engineer',
+        role: 'engineers',
+        permissions: { ADD_PROJECTS: true },
       },
     },
     isLoading: false,
@@ -371,8 +372,8 @@ test('opens role-specific left and top menus on the dashboard', () => {
   });
   window.history.pushState({}, '', '/dashboard');
 
-  const originalEngineerConfig = menuConfig.engineer;
-  menuConfig.engineer = {
+  const originalEngineersConfig = menuConfig.engineers;
+  menuConfig.engineers = {
     left: [{ label: 'Work logs', path: '/dashboard' }],
     top: [{ label: 'Help', path: '/about' }],
   };
@@ -381,7 +382,7 @@ test('opens role-specific left and top menus on the dashboard', () => {
     render(<App />);
 
     const leftMenuToggle = screen.getByRole('button', { name: /open navigation menu/i });
-    expect(leftMenuToggle).toHaveAttribute('aria-controls', 'engineer-left-menu');
+    expect(leftMenuToggle).toHaveAttribute('aria-controls', 'engineers-left-menu');
     const mainContent = screen.getByRole('main');
     const headerContent = screen.getByRole('group', { name: 'Page header content' });
     const headerSidebarSpacer = headerContent.previousElementSibling;
@@ -390,7 +391,7 @@ test('opens role-specific left and top menus on the dashboard', () => {
     expect(headerSidebarSpacer).toHaveClass('shrink-0', 'lg:w-0');
     expect(mainContent.parentElement).toHaveClass('mx-auto', 'w-full', 'max-w-[1600px]');
     expect(mainContent).toHaveClass('px-4', 'sm:px-6', 'lg:px-8');
-    const leftMenu = document.getElementById('engineer-left-menu');
+    const leftMenu = document.getElementById('engineers-left-menu');
     expect(leftMenu).toHaveClass(
       'fixed',
       'w-60',
@@ -403,12 +404,12 @@ test('opens role-specific left and top menus on the dashboard', () => {
     );
     expect(leftMenu).toHaveAttribute('aria-hidden', 'true');
     expect(leftMenu).toHaveAttribute('inert');
-    expect(screen.queryByRole('navigation', { name: 'engineer-left-menu' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'engineers-left-menu' })).not.toBeInTheDocument();
     expect(mainContent).toHaveClass('min-w-0', 'flex-1');
     expect(screen.queryByRole('button', { name: 'Close navigation menu' })).not.toBeInTheDocument();
     userEvent.click(leftMenuToggle);
     const topMenuToggle = screen.getByRole('button', { name: /taylor day/i });
-    expect(screen.getByRole('navigation', { name: 'engineer-left-menu' })).toBeVisible();
+    expect(screen.getByRole('navigation', { name: 'engineers-left-menu' })).toBeVisible();
     expect(leftMenu).toHaveAttribute('aria-hidden', 'false');
     expect(leftMenu).not.toHaveAttribute('inert');
     expect(leftMenu).toHaveClass('overflow-y-auto', 'lg:w-60');
@@ -420,7 +421,7 @@ test('opens role-specific left and top menus on the dashboard', () => {
     expect(screen.getByRole('link', { name: 'Work logs' })).toHaveAttribute('href', '/dashboard');
     expect(screen.queryByRole('link', { name: 'Dashboard' })).not.toBeInTheDocument();
     userEvent.click(closeDrawer);
-    expect(screen.queryByRole('navigation', { name: 'engineer-left-menu' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'engineers-left-menu' })).not.toBeInTheDocument();
     expect(leftMenu).toHaveAttribute('aria-hidden', 'true');
     expect(leftMenu).toHaveAttribute('inert');
     expect(leftMenu).toHaveClass('overflow-hidden', 'lg:w-0', 'lg:border-r-0', 'lg:p-0');
@@ -428,46 +429,80 @@ test('opens role-specific left and top menus on the dashboard', () => {
 
     userEvent.click(topMenuToggle);
     const topMenu = screen.getByRole('menu');
-    expect(topMenu).toHaveAttribute('id', 'engineer-top-menu');
+    expect(topMenu).toHaveAttribute('id', 'engineers-top-menu');
     expect(within(topMenu).getByRole('menuitem', { name: 'Help' })).toHaveAttribute('href', '/about');
   } finally {
-    if (originalEngineerConfig) {
-      menuConfig.engineer = originalEngineerConfig;
+    if (originalEngineersConfig) {
+      menuConfig.engineers = originalEngineersConfig;
     } else {
-      delete menuConfig.engineer;
+      delete menuConfig.engineers;
     }
   }
 });
 
-test('renders the protected engineer add-projects route', () => {
-  mockGetCurrentSession.mockReturnValue({
-    data: {
-      user: {
-        id: 'user-1',
-        first_name: 'Taylor',
-        last_name: 'Day',
-        email: 'taylor@example.com',
-        role: 'engineer',
+test.each(['engineers', 'architects', 'interior designers'])(
+  'renders shared project routes for %s',
+  (role) => {
+    mockGetCurrentSession.mockReturnValue({
+      data: {
+        user: {
+          id: 'user-1',
+          first_name: 'Taylor',
+          last_name: 'Day',
+          email: 'taylor@example.com',
+          role,
+          permissions: { ADD_PROJECTS: true },
+        },
       },
-    },
-    isLoading: false,
-    refetch: jest.fn(),
-  });
-  window.history.pushState({}, '', '/add-projects');
-  render(<App />);
+      isLoading: false,
+      refetch: jest.fn(),
+    });
 
-  expect(screen.getByRole('heading', { name: /^add project$/i })).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: /open navigation menu/i })).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: /taylor day/i })).toBeInTheDocument();
+    window.history.pushState({}, '', '/add-projects');
+    render(<App />);
 
-  userEvent.click(screen.getByRole('button', { name: /open navigation menu/i }));
-  expect(screen.getByRole('navigation', { name: 'engineer-left-menu' })).toBeVisible();
-  expect(screen.getByRole('button', { name: /projects/i })).toHaveAttribute('aria-expanded', 'true');
-  expect(screen.getByRole('link', { name: 'Add Projects' })).toHaveAttribute('href', '/add-projects');
-  expect(screen.getByRole('link', { name: 'Manage Projects' })).toHaveAttribute('href', '/manage-projects');
-  userEvent.click(screen.getByRole('link', { name: 'Manage Projects' }));
-  expect(screen.getByRole('heading', { name: 'Manage Projects' })).toBeInTheDocument();
-});
+    expect(screen.getByRole('heading', { name: /^add project$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /open navigation menu/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /taylor day/i })).toBeInTheDocument();
+
+    userEvent.click(screen.getByRole('button', { name: /open navigation menu/i }));
+    expect(screen.getByRole('navigation', { name: `${role.replace(/\s+/g, '-')}-left-menu` })).toBeVisible();
+    expect(screen.getByRole('button', { name: /projects/i })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('link', { name: 'Add Projects' })).toHaveAttribute('href', '/add-projects');
+    expect(screen.getByRole('link', { name: 'Manage Projects' })).toHaveAttribute('href', '/manage-projects');
+    userEvent.click(screen.getByRole('link', { name: 'Manage Projects' }));
+    expect(screen.getByRole('heading', { name: 'Manage Projects' })).toBeInTheDocument();
+  }
+);
+
+test.each(['/add-project', '/add-projects'])(
+  'denies direct navigation to %s without ADD_PROJECTS permission',
+  (path) => {
+    mockGetCurrentSession.mockReturnValue({
+      data: {
+        user: {
+          id: 'user-1',
+          first_name: 'Taylor',
+          last_name: 'Day',
+          email: 'taylor@example.com',
+          role: 'engineers',
+          permissions: { ADD_PROJECTS: false },
+        },
+      },
+      isLoading: false,
+      refetch: jest.fn(),
+    });
+    window.history.pushState({}, '', path);
+    render(<App />);
+
+    expect(
+      screen.getByRole('heading', { name: /you don’t have permission to view this page/i })
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /^add project$/i })).not.toBeInTheDocument();
+    userEvent.click(screen.getByRole('button', { name: /open navigation menu/i }));
+    expect(screen.queryByRole('link', { name: 'Add Projects' })).not.toBeInTheDocument();
+  }
+);
 
 test('renders project documents with responsive project navigation', () => {
   const projectResponse = mockGetProject();
@@ -488,7 +523,7 @@ test('renders project documents with responsive project navigation', () => {
         first_name: 'Taylor',
         last_name: 'Day',
         email: 'taylor@example.com',
-        role: 'engineer',
+        role: 'engineers',
       },
     },
     isLoading: false,
@@ -601,15 +636,15 @@ test('renders project documents with responsive project navigation', () => {
   expect(projectLinks[1]).toHaveClass('bg-blue-50', 'text-blue-700');
   expect(projectLinks[2]).toHaveClass('hover:bg-slate-100');
   userEvent.click(screen.getByRole('button', { name: /open navigation menu/i }));
-  expect(screen.getByRole('navigation', { name: 'engineer-left-menu' })).toBeVisible();
-  const leftMenu = document.getElementById('engineer-left-menu');
+  expect(screen.getByRole('navigation', { name: 'engineers-left-menu' })).toBeVisible();
+  const leftMenu = document.getElementById('engineers-left-menu');
   expect(leftMenu).toHaveAttribute('aria-hidden', 'false');
   expect(leftMenu).not.toHaveAttribute('inert');
   expect(screen.getByRole('button', { name: 'Close navigation menu' })).toBeInTheDocument();
   expect(mainContent).toHaveClass('min-w-0', 'flex-1');
   expect(projectLinkScroller).toHaveClass('overflow-x-auto');
   userEvent.click(screen.getByRole('button', { name: 'Close navigation menu' }));
-  expect(screen.queryByRole('navigation', { name: 'engineer-left-menu' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('navigation', { name: 'engineers-left-menu' })).not.toBeInTheDocument();
   expect(leftMenu).toHaveAttribute('aria-hidden', 'true');
   expect(leftMenu).toHaveAttribute('inert');
   expect(within(sectionNavigation).getByRole('link', { name: 'Documents' })).toHaveAttribute(
@@ -657,7 +692,7 @@ test.each(['In discussion', 'Planning'])(
           first_name: 'Taylor',
           last_name: 'Day',
           email: 'taylor@example.com',
-          role: 'engineer',
+          role: 'engineers',
         },
       },
       isLoading: false,
@@ -681,7 +716,7 @@ test('shows Edit Project first in section navigation while a project section is 
         first_name: 'Taylor',
         last_name: 'Day',
         email: 'taylor@example.com',
-        role: 'engineer',
+        role: 'engineers',
       },
     },
     isLoading: false,
@@ -734,7 +769,7 @@ test('loads and displays the current user projects on the manage projects page',
         first_name: 'Taylor',
         last_name: 'Day',
         email: 'taylor@example.com',
-        role: 'engineer',
+        role: 'engineers',
       },
     },
     isLoading: false,
@@ -912,7 +947,7 @@ test('opens completed projects in a read-only view with the project name as its 
         first_name: 'Taylor',
         last_name: 'Day',
         email: 'taylor@example.com',
-        role: 'engineer',
+        role: 'engineers',
       },
     },
     isLoading: false,

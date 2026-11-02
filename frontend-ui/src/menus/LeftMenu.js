@@ -22,9 +22,9 @@ export const LeftMenuToggle = ({ role, open, onToggle }) => {
   )
 }
 
-const LeftMenu = ({ role, open }) => {
+const LeftMenu = ({ role, permissions, open }) => {
   const menuId = getRoleMenuId(role, 'left')
-  const menuItems = getMenuItems(role, 'left')
+  const menuItems = getMenuItems(role, 'left', permissions)
   const location = useLocation()
   const [expandedItems, setExpandedItems] = useState(() =>
     menuItems.reduce((expanded, item) => {

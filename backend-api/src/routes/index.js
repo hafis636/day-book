@@ -20,14 +20,25 @@ const {
   updateProject,
 } = require('../controllers/projectsController');
 const requireAuthenticatedSession = require('../middleware/requireAuthenticatedSession');
+const requirePermission = require('../middleware/requirePermission');
 const requireNonAdmin = require('../middleware/requireNonAdmin');
 const requireAdmin = require('../middleware/requireAdmin');
-const { getPlans, getAdminPlans, updateAdminPlan } = require('../controllers/plansController');
+const {
+  getPlans,
+  getAdminPlans,
+  selectPlan,
+  updateAdminPlan,
+} = require('../controllers/plansController');
 const {
   getAdminRoles,
   createAdminRole,
   updateAdminRole,
 } = require('../controllers/rolesController');
+const {
+  getAdminPermissions,
+  createAdminPermission,
+  updateAdminPermission,
+} = require('../controllers/permissionsController');
 
 const router = express.Router();
 
@@ -39,6 +50,7 @@ router.post('/otp/validate', validateUserOtp, createSessionForAuthenticatedUser)
 router.get('/session', getCurrentSession);
 router.post('/session/logout', logout);
 router.get('/plans', requireAuthenticatedSession, requireNonAdmin, getPlans);
+router.patch('/plans/:planCode', requireAuthenticatedSession, requireNonAdmin, selectPlan);
 router.get('/admin/plans', requireAuthenticatedSession, requireAdmin, getAdminPlans);
 router.patch(
   '/admin/plans/:planCode',
@@ -54,9 +66,28 @@ router.patch(
   requireAdmin,
   updateAdminRole
 );
+router.get(
+  '/admin/permissions',
+  requireAuthenticatedSession,
+  requireAdmin,
+  getAdminPermissions
+);
+router.post(
+  '/admin/permissions',
+  requireAuthenticatedSession,
+  requireAdmin,
+  createAdminPermission
+);
+router.patch(
+  '/admin/permissions/:permissionId',
+  requireAuthenticatedSession,
+  requireAdmin,
+  updateAdminPermission
+);
 router.post(
   '/projects',
   requireAuthenticatedSession,
+  requirePermission('ADD_PROJECTS'),
   parseProjectImages,
   createProject
 );

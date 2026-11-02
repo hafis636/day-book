@@ -34,6 +34,30 @@ const getSessionUser = async (token) => {
        AND s.expires_at > NOW()
      RETURNING u.id, u.first_name, u.last_name, u.email, u.username, u.user_plan,
                p.plan_name AS user_plan_name, r.role_code AS role, r.role_name,
+               (
+                 SELECT COALESCE(
+                   json_object_agg(
+                     permission.permission_key,
+                     COALESCE(permission.is_active, FALSE)
+                       AND EXISTS (
+                         SELECT 1
+                         FROM json_array_elements_text(
+                           COALESCE(permission.role_ids::json, '[]'::json)
+                         ) AS assigned_role(role_id)
+                         WHERE assigned_role.role_id = r.id::text
+                       )
+                       AND EXISTS (
+                         SELECT 1
+                         FROM json_array_elements_text(
+                           COALESCE(permission.plan_ids::json, '[]'::json)
+                         ) AS assigned_plan(plan_code)
+                         WHERE assigned_plan.plan_code = u.user_plan
+                       )
+                   ),
+                   '{}'::json
+                 )
+                 FROM "daybook-dev-db".permissions AS permission
+               ) AS permissions,
                s.expires_at`,
     [tokenHash]
   );

@@ -1,10 +1,79 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const bcrypt = require('bcryptjs');
 
 process.env.DATABASE_URL ||= 'postgres://localhost:5432/test';
 
 const { pool } = require('../config/db');
-const { registerUser } = require('./usersService');
+const { authenticateUser, registerUser, getRoles, roleIdExists } = require('./usersService');
+
+test('authenticates with the user role and its active status', async (t) => {
+  const originalQuery = pool.query;
+  let statement;
+  pool.query = async (sql, params) => {
+    statement = { sql, params };
+    return {
+      rows: [{
+        id: 'user-id',
+        password_hash: await bcrypt.hash('Password1!', 1),
+        role: 'ENGINEERS',
+        role_is_active: false,
+      }],
+    };
+  };
+  t.after(() => {
+    pool.query = originalQuery;
+  });
+
+  const user = await authenticateUser(' ADA@EXAMPLE.COM ', 'Password1!');
+
+  assert.deepEqual(user, {
+    id: 'user-id',
+    role: 'ENGINEERS',
+    roleIsActive: false,
+  });
+  assert.match(statement.sql, /INNER JOIN "daybook-dev-db"\.roles AS r ON r\.id = u\.role_id/);
+  assert.match(statement.sql, /r\.is_active AS role_is_active/);
+  assert.deepEqual(statement.params, ['ada@example.com']);
+});
+
+test('lists only active roles for registration', async (t) => {
+  const originalQuery = pool.query;
+  let statement;
+  pool.query = async (sql, params) => {
+    statement = { sql, params };
+    return {
+      rows: [{ id: 'active-role', role_name: 'Engineers', role_code: 'ENGINEERS' }],
+    };
+  };
+  t.after(() => {
+    pool.query = originalQuery;
+  });
+
+  const roles = await getRoles();
+
+  assert.deepEqual(roles, [
+    { id: 'active-role', role_name: 'Engineers', role_code: 'ENGINEERS' },
+  ]);
+  assert.match(statement.sql, /WHERE is_active = TRUE/);
+  assert.deepEqual(statement.params, []);
+});
+
+test('rejects inactive roles during registration role validation', async (t) => {
+  const originalQuery = pool.query;
+  let statement;
+  pool.query = async (sql, params) => {
+    statement = { sql, params };
+    return { rows: [{ exists: false }] };
+  };
+  t.after(() => {
+    pool.query = originalQuery;
+  });
+
+  assert.equal(await roleIdExists('inactive-role'), false);
+  assert.match(statement.sql, /id = \$1 AND is_active = TRUE/);
+  assert.deepEqual(statement.params, ['inactive-role']);
+});
 
 test('assigns ADMIN or BASIC plan according to the registered role code', async () => {
   const calls = [];
@@ -16,8 +85,8 @@ test('assigns ADMIN or BASIC plan according to the registered role code', async 
         return {
           rows: [{
             id: 'user-id',
-            role: 'ENGINEER',
-            role_name: 'Engineer',
+            role: 'ENGINEERS',
+            role_name: 'Engineers',
           }],
         };
       }
@@ -41,8 +110,8 @@ test('assigns ADMIN or BASIC plan according to the registered role code', async 
   assert.deepEqual(planUpdate.params, ['user-id']);
   assert.deepEqual(result, {
     id: 'user-id',
-    role: 'ENGINEER',
-    role_name: 'Engineer',
+    role: 'ENGINEERS',
+    role_name: 'Engineers',
   });
   assert.equal(calls.at(-1).sql, 'COMMIT');
 });

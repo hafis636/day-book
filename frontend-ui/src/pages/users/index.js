@@ -1,6 +1,7 @@
 import React from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useGetCurrentSessionQuery } from '../../redux/services/users/usersApi'
+import { normalizeRole } from '../../menus/menuNames'
 
 const isBasicOrSilverPlan = (value) =>
   String(value || '')
@@ -15,8 +16,7 @@ const Dashboard = () => {
   const user = data.user
   const displayName =
     [user.first_name, user.last_name].filter(Boolean).join(' ') ||
-    user.username ||
-    user.email
+    user.Email
 
   return (
     <section className="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-slate-200">
@@ -29,8 +29,8 @@ const Dashboard = () => {
         </p>
       )}
 
-      {String(user.role || '').trim().toLowerCase() !== 'admin' &&
-        [user.user_plan_name, user.user_plan].some(isBasicOrSilverPlan) && (
+      {normalizeRole(user.role) !== 'admin' &&
+        isBasicOrSilverPlan(user.plan) && (
         <aside
           aria-label="Plan information"
           className="mt-8 flex flex-col gap-5 overflow-hidden rounded-xl border border-blue-200 bg-blue-50 p-6 sm:flex-row sm:items-center sm:justify-between"
@@ -58,7 +58,7 @@ const Dashboard = () => {
       <div className="mt-8 grid gap-4 sm:grid-cols-2">
         <div className="rounded-xl bg-slate-50 p-5">
           <p className="text-sm font-medium text-slate-500">Email</p>
-          <p className="mt-1 font-semibold text-slate-800">{user.email}</p>
+          <p className="mt-1 font-semibold text-slate-800">{user.Email}</p>
         </div>
       </div>
     </section>

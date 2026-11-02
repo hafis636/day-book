@@ -9,12 +9,21 @@ const loginUser = async (req, res, next) => {
   }
 
   try {
-    const userId = await usersService.authenticateUser(username, password);
-    if (!userId) {
+    const user = await usersService.authenticateUser(username, password);
+    if (!user) {
       return res.status(401).json({ error: 'Invalid username or password' });
     }
 
-    req.authenticatedUserId = userId;
+    if (
+      String(user.role).trim().toUpperCase() !== 'ADMIN' &&
+      !user.roleIsActive
+    ) {
+      return res.status(403).json({
+        error: 'Your Account is not active, Contact Administrator for support',
+      });
+    }
+
+    req.authenticatedUserId = user.id;
     return next();
   } catch (error) {
     console.error('Failed to authenticate user:', error);

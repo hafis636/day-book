@@ -4,15 +4,23 @@ import { getMenuItems } from '../menus/menu_config'
 
 const mockGetCurrentSessionQuery = jest.fn()
 const mockGetAdminRolesQuery = jest.fn()
+const mockGetAdminPermissionsQuery = jest.fn()
+const mockGetAdminPlansQuery = jest.fn()
 const mockLogout = jest.fn()
 const mockCreateAdminRole = jest.fn()
 const mockUpdateAdminRole = jest.fn()
+const mockCreateAdminPermission = jest.fn()
+const mockUpdateAdminPermission = jest.fn()
 
 jest.mock('../redux/services/users/usersApi', () => ({
   useGetCurrentSessionQuery: () => mockGetCurrentSessionQuery(),
   useGetAdminRolesQuery: () => mockGetAdminRolesQuery(),
+  useGetAdminPermissionsQuery: () => mockGetAdminPermissionsQuery(),
+  useGetAdminPlansQuery: () => mockGetAdminPlansQuery(),
   useCreateAdminRoleMutation: () => [mockCreateAdminRole, { isLoading: false }],
   useUpdateAdminRoleMutation: () => [mockUpdateAdminRole, { isLoading: false }],
+  useCreateAdminPermissionMutation: () => [mockCreateAdminPermission, { isLoading: false }],
+  useUpdateAdminPermissionMutation: () => [mockUpdateAdminPermission, { isLoading: false }],
   useLogoutMutation: () => [mockLogout, { isLoading: false }],
 }))
 
@@ -36,9 +44,18 @@ beforeEach(() => {
     isError: false,
     refetch: jest.fn(),
   })
+  mockGetAdminPermissionsQuery.mockReturnValue({
+    data: [],
+    isLoading: false,
+    isError: false,
+    refetch: jest.fn(),
+  })
+  mockGetAdminPlansQuery.mockReturnValue({ data: { plans: [] } })
   mockLogout.mockReturnValue({ unwrap: () => Promise.resolve({ success: true }) })
   mockCreateAdminRole.mockReturnValue({ unwrap: () => Promise.resolve({}) })
   mockUpdateAdminRole.mockReturnValue({ unwrap: () => Promise.resolve({}) })
+  mockCreateAdminPermission.mockReturnValue({ unwrap: () => Promise.resolve({}) })
+  mockUpdateAdminPermission.mockReturnValue({ unwrap: () => Promise.resolve({}) })
 })
 
 test('registers the Roles & Permissions page for administrators and adds its sidebar link', () => {
@@ -55,7 +72,7 @@ test('registers the Roles & Permissions page for administrators and adds its sid
 test('denies non-admin users access to the page route', () => {
   mockGetCurrentSessionQuery.mockReturnValue({
     data: {
-      user: { id: 'user-2', first_name: 'Jordan', role: 'engineer' },
+      user: { id: 'user-2', first_name: 'Jordan', role: 'engineers' },
     },
     isLoading: false,
     refetch: jest.fn(),
