@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import ProjectWorkspaceLayout from '../pages/users/engineers/ProjectWorkspaceLayout'
+import ProjectWorkspaceLayout from '../pages/users/builders/ProjectWorkspaceLayout'
 
 let mockSession
 

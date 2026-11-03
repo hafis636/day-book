@@ -5,11 +5,25 @@ import React from 'react'
 
 const TopMenu = ({ role, roleName, displayName, isLoading, onLogout }) => {
   const [menuOpen, setMenuOpen] = React.useState(false)
+  const menuContainerRef = React.useRef(null)
   const menuId = getRoleMenuId(role, 'top')
   const menuItems = getMenuItems(role, 'top')
 
+  React.useEffect(() => {
+    if (!menuOpen) return undefined
+
+    const handleDocumentClick = (event) => {
+      if (!menuContainerRef.current?.contains(event.target)) {
+        setMenuOpen(false)
+      }
+    }
+
+    document.addEventListener('click', handleDocumentClick)
+    return () => document.removeEventListener('click', handleDocumentClick)
+  }, [menuOpen])
+
   return (
-    <div className="relative">
+    <div ref={menuContainerRef} className="relative">
       <button
         type="button"
         aria-haspopup="menu"

@@ -5,11 +5,21 @@ import { MemoryRouter } from 'react-router-dom'
 let mockUploadProjectDocuments
 let mockDeleteProjectDocument
 let mockUpdateProjectDocument
+let mockAddReviewComment
 let mockProjectDocuments = { documents: [] }
 let mockIsUploadLoading = false
 let mockIsUpdateLoading = false
+let mockDocumentPermissions = { ADD_DOCUMENT: true, REVIEW_DOCUMENT: true }
+let mockSessionUser = {
+  permissions: mockDocumentPermissions,
+  first_name: 'Taylor',
+  last_name: 'Day',
+}
 
 jest.mock('../redux/services/users/usersApi', () => ({
+  useGetCurrentSessionQuery: () => ({
+    data: { user: mockSessionUser },
+  }),
   useUploadProjectDocumentsMutation: () => [
     mockUploadProjectDocuments,
     { isLoading: mockIsUploadLoading },
@@ -22,6 +32,10 @@ jest.mock('../redux/services/users/usersApi', () => ({
     mockUpdateProjectDocument,
     { isLoading: mockIsUpdateLoading },
   ],
+  useAddProjectDocumentReviewCommentMutation: () => [
+    mockAddReviewComment,
+    { isLoading: false },
+  ],
   useGetProjectDocumentsQuery: () => ({
     data: mockProjectDocuments,
     isLoading: false,
@@ -29,16 +43,135 @@ jest.mock('../redux/services/users/usersApi', () => ({
   }),
 }))
 
-import AddDocumentForm from '../pages/users/engineers/forms/AddDocumentForm'
-import DocumentsPage from '../pages/users/engineers/sections/DocumentsPage'
+import AddDocumentForm from '../pages/users/builders/sections/documents/forms/AddDocumentForm'
+import DocumentsPage from '../pages/users/builders/sections/documents/DocumentsPage'
 
 beforeEach(() => {
   mockUploadProjectDocuments = jest.fn()
   mockDeleteProjectDocument = jest.fn()
   mockUpdateProjectDocument = jest.fn()
+  mockAddReviewComment = jest.fn()
   mockProjectDocuments = { documents: [] }
   mockIsUploadLoading = false
   mockIsUpdateLoading = false
+  mockDocumentPermissions = { ADD_DOCUMENT: true, REVIEW_DOCUMENT: true }
+  mockSessionUser = {
+    permissions: mockDocumentPermissions,
+    first_name: 'Taylor',
+    last_name: 'Day',
+  }
+})
+
+test('adds review comments from the expanded document review section', async () => {
+  const savedComments = [
+    { comment: 'Check the scale.', added: 'Taylor Day', added_on: '2026-11-02T10:00:00.000Z' },
+    { comment: 'Please revise sheet two.', added: 'Taylor Day', added_on: '2026-11-02T10:05:00.000Z' },
+  ]
+  const document = {
+    id: 'document-1',
+    file_path: '/plan.pdf',
+    title: 'Plan',
+    review_status: 'PENDING',
+    review_comments: [
+      { comment: 'Check the scale.', added: 'Taylor Day', added_on: '2026-11-02T10:00:00.000Z' },
+    ],
+  }
+  mockProjectDocuments = { documents: [document] }
+  mockAddReviewComment.mockReturnValue({
+    unwrap: () => Promise.resolve({ review_comments: savedComments }),
+  })
+
+  render(
+    <MemoryRouter>
+      <DocumentsPage projectId="project-1" />
+    </MemoryRouter>
+  )
+
+  await userEvent.click(screen.getByRole('button', { name: 'Review Plan' }))
+  expect(screen.getByRole('region', { name: 'Review comments for Plan' })).toBeInTheDocument()
+  expect(screen.getByText('Check the scale.')).toBeInTheDocument()
+  await userEvent.type(screen.getByLabelText('Add a comment'), 'Please revise sheet two.')
+  await userEvent.click(screen.getByRole('button', { name: 'Save comment' }))
+
+  await waitFor(() => expect(mockAddReviewComment).toHaveBeenCalledWith({
+    projectId: 'project-1',
+    documentId: 'document-1',
+    comment: 'Please revise sheet two.',
+  }))
+  expect(screen.getByRole('region', { name: 'Review comments for Plan' })).toBeInTheDocument()
+  expect(screen.getByText('Please revise sheet two.')).toBeInTheDocument()
+  expect(screen.getByLabelText('Add a comment')).toHaveValue('')
+})
+
+test('closing the review section clears its comment and collapses the section', async () => {
+  mockProjectDocuments = {
+    documents: [{
+      id: 'document-1',
+      file_path: '/plan.pdf',
+      title: 'Plan',
+      review_status: 'PENDING',
+    }],
+  }
+
+  render(
+    <MemoryRouter>
+      <DocumentsPage projectId="project-1" />
+    </MemoryRouter>
+  )
+
+  await userEvent.click(screen.getByRole('button', { name: 'Review Plan' }))
+  const commentField = screen.getByLabelText('Add a comment')
+  await userEvent.type(commentField, 'Discard this comment.')
+  await userEvent.click(screen.getByRole('button', { name: 'Close review for Plan' }))
+
+  expect(screen.queryByRole('region', { name: 'Review comments for Plan' })).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Review Plan' })).toHaveAttribute('aria-expanded', 'false')
+  await userEvent.click(screen.getByRole('button', { name: 'Review Plan' }))
+
+  expect(screen.getByLabelText('Add a comment')).toHaveValue('')
+})
+
+test('hides the Review action without REVIEW_DOCUMENT permission', () => {
+  mockDocumentPermissions = { ADD_DOCUMENT: true, REVIEW_DOCUMENT: false }
+  mockSessionUser = {
+    permissions: mockDocumentPermissions,
+    first_name: 'Taylor',
+    last_name: 'Day',
+  }
+  mockProjectDocuments = {
+    documents: [{
+      id: 'document-1',
+      file_path: '/plan.pdf',
+      title: 'Plan',
+      review_status: 'PENDING',
+    }],
+  }
+
+  render(
+    <MemoryRouter>
+      <DocumentsPage projectId="project-1" />
+    </MemoryRouter>
+  )
+
+  expect(screen.queryByRole('button', { name: 'Review Plan' })).not.toBeInTheDocument()
+})
+
+test('hides the Add Document action without ADD_DOCUMENT permission', () => {
+  mockDocumentPermissions = { ADD_DOCUMENT: false }
+  mockSessionUser = {
+    permissions: mockDocumentPermissions,
+    first_name: 'Taylor',
+    last_name: 'Day',
+  }
+  render(
+    <MemoryRouter>
+      <DocumentsPage projectId="project-1" />
+    </MemoryRouter>
+  )
+
+  expect(screen.queryByRole('button', { name: 'Add Document' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('dialog', { name: 'Add a document' })).not.toBeInTheDocument()
+  expect(screen.getByText('Documents shared with this project will appear here.')).toBeInTheDocument()
 })
 
 test('keeps focus on Save while a document update is in progress', async () => {
@@ -268,6 +401,10 @@ test('uploads the document fields and closes the form after success', async () =
     screen.getByLabelText(/^Document category/),
     'Drawings & Designs'
   )
+  await userEvent.selectOptions(
+    screen.getByLabelText(/^Review status/),
+    'Under Review'
+  )
   const file = new File(['drawing'], 'drawing.pdf', { type: 'application/pdf' })
   await userEvent.upload(screen.getByLabelText('Files'), file)
   await userEvent.click(screen.getByRole('button', { name: 'Save' }))
@@ -278,6 +415,7 @@ test('uploads the document fields and closes the form after success', async () =
   expect(request.projectId).toBe('project-1')
   expect(request.formData.get('title')).toBe('Structural drawings')
   expect(request.formData.get('category')).toBe('Drawings & Designs')
+  expect(request.formData.get('reviewStatus')).toBe('UNDER REVIEW')
   expect(request.formData.getAll('files')).toHaveLength(1)
   expect(request.formData.getAll('files')[0].name).toBe('drawing.pdf')
 })
@@ -327,7 +465,7 @@ test('edits an unlocked review status and uploads an optional replacement file',
   expect(request).toMatchObject({ projectId: 'project-1', documentId: 'approved-1' })
   expect(request.formData.get('title')).toBe('Revised pending drawing')
   expect(request.formData.get('category')).toBe('Drawings & Designs')
-  expect(request.formData.get('reviewStatus')).toBe('Pending')
+  expect(request.formData.get('reviewStatus')).toBe('PENDING')
   expect(request.formData.getAll('files')).toHaveLength(1)
   expect(request.formData.getAll('files')[0].name).toBe('revised.pdf')
 })

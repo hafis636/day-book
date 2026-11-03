@@ -6,10 +6,10 @@ import Dashboard from "../pages/users";
 import PlansPage from "../pages/plans";
 import ManagePlansPage from "../pages/users/admin/plans/modify-plans";
 import RolesPermissionsPage from "../pages/users/admin/roles-permissions";
-import AddProjectForm from "../pages/users/engineers/forms/AddProjectForm";
-import ManageProjects from "../pages/users/engineers/ManageProjects";
-import EditProject from "../pages/users/engineers/EditProject";
-import ProjectSectionPage from "../pages/users/engineers/ProjectSectionPage";
+import AddProjectForm from "../pages/users/builders/forms/AddProjectForm";
+import ManageProjects from "../pages/users/builders/ManageProjects";
+import EditProject from "../pages/users/builders/EditProject";
+import ProjectSectionPage from "../pages/users/builders/ProjectSectionPage";
 import { HomeRedirect, ProtectedRoute, PublicOnlyRoute } from "./SessionRoutes";
 import './App.css';
 

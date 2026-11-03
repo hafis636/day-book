@@ -197,6 +197,30 @@ const getProjectDocumentsForUser = async (userId, projectId) => {
   return result.rows;
 };
 
+const addProjectDocumentReviewCommentForUser = async (
+  userId,
+  projectId,
+  documentId,
+  comment
+) => {
+  if (!userId) {
+    throw new Error('An authenticated user ID is required to review a project document');
+  }
+
+  const result = await pool.query(
+    `UPDATE "daybook-dev-db".project_documents AS d
+     SET review_comments = COALESCE(d.review_comments, '[]'::jsonb) || $4::jsonb
+     FROM "daybook-dev-db".projects AS p
+     WHERE p.id = d.project_id AND p.engineer_id = $1
+       AND d.project_id = $2 AND d.id = $3
+       AND d.is_active = TRUE AND d.file_type NOT IN ('image', 'images')
+     RETURNING d.review_comments`,
+    [userId, projectId, documentId, JSON.stringify([comment])]
+  );
+
+  return result.rows[0] ?? null;
+};
+
 const getProjectDocumentDownloadForUser = async (userId, projectId, documentId) => {
   if (!userId) {
     throw new Error('An authenticated user ID is required to download a project document');
@@ -443,7 +467,9 @@ const uploadProjectDocumentsForUser = async (userId, projectId, document, files)
           document.description || null,
           document.category,
           document.referenceNumber || '',
-          document.reviewStatus || '',
+          typeof document.reviewStatus === 'string'
+            ? document.reviewStatus.trim().toUpperCase()
+            : '',
           document.visibility || '',
           document.date || '',
           userId,
@@ -629,6 +655,7 @@ const updateProjectForUser = async (userId, projectId, project, files, removeIma
 
 module.exports = {
   createProject,
+  addProjectDocumentReviewCommentForUser,
   deleteDraftProjectDocumentForUser,
   getProjectDocumentsForUser,
   getProjectDocumentDownloadForUser,

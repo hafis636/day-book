@@ -47,6 +47,42 @@ const getProjectDocuments = async (req, res) => {
   }
 };
 
+const addProjectDocumentReviewComment = async (req, res) => {
+  const uuidPattern =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  const { id: projectId, documentId } = req.params;
+  const comment = typeof req.body?.comment === 'string' ? req.body.comment.trim() : '';
+
+  if (!uuidPattern.test(projectId) || !uuidPattern.test(documentId)) {
+    return res.status(400).json({ error: 'Valid project and document IDs are required' });
+  }
+  if (!comment) {
+    return res.status(400).json({ error: 'A review comment is required' });
+  }
+  if (comment.length > 5000) {
+    return res.status(400).json({ error: 'Review comments cannot exceed 5000 characters' });
+  }
+
+  const added = [
+    req.authenticatedUser.first_name,
+    req.authenticatedUser.last_name,
+  ].filter(Boolean).join(' ');
+
+  try {
+    const result = await projectsService.addProjectDocumentReviewCommentForUser(
+      req.authenticatedUser.id,
+      projectId,
+      documentId,
+      { comment, added, added_on: new Date().toISOString() }
+    );
+    if (!result) return res.status(404).json({ error: 'Project document not found' });
+    return res.json({ review_comments: result.review_comments });
+  } catch (error) {
+    console.error('Failed to add project document review comment:', error);
+    return res.status(500).json({ error: 'Failed to save review comment' });
+  }
+};
+
 const downloadProjectDocument = async (req, res) => {
   const uuidPattern =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -441,6 +477,7 @@ const updateProject = async (req, res) => {
 module.exports = {
   createProject,
   createProjectDocuments,
+  addProjectDocumentReviewComment,
   deleteProjectDocument,
   downloadProjectDocument,
   getProjectDocuments,

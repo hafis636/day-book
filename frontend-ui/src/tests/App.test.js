@@ -524,6 +524,7 @@ test('renders project documents with responsive project navigation', () => {
         last_name: 'Day',
         email: 'taylor@example.com',
         role: 'engineers',
+        permissions: { ADD_DOCUMENT: true, PROJECT_RIGHT_MENU: true },
       },
     },
     isLoading: false,

@@ -3,7 +3,7 @@ import { API_BASE_URL } from "../../../config/api";
 
 export const usersApi = createApi({
   reducerPath: "usersApi",
-  tagTypes: ["Session", "Project", "ProjectDocuments", "Plans", "AdminPlans", "Roles", "Permissions"],
+  tagTypes: ["Session", "Project", "ProjectDocuments", "ProjectPayments", "Plans", "AdminPlans", "Roles", "Permissions"],
   baseQuery: fetchBaseQuery({
     baseUrl: API_BASE_URL,
     credentials: "include",
@@ -146,6 +146,32 @@ export const usersApi = createApi({
         { type: "ProjectDocuments", id: projectId },
       ],
     }),
+    getProjectPayments: builder.query({
+      query: (projectId) => `/projects/${projectId}/payments`,
+      providesTags: (result, error, projectId) => [
+        { type: "ProjectPayments", id: projectId },
+      ],
+    }),
+    createProjectPayment: builder.mutation({
+      query: ({ projectId, ...payment }) => ({
+        url: `/projects/${projectId}/payments`,
+        method: "POST",
+        body: payment,
+      }),
+      invalidatesTags: (result, error, { projectId }) => [
+        { type: "ProjectPayments", id: projectId },
+      ],
+    }),
+    addProjectDocumentReviewComment: builder.mutation({
+      query: ({ projectId, documentId, comment }) => ({
+        url: `/projects/${projectId}/documents/${documentId}/review-comments`,
+        method: "POST",
+        body: { comment },
+      }),
+      invalidatesTags: (result, error, { projectId }) => [
+        { type: "ProjectDocuments", id: projectId },
+      ],
+    }),
     uploadProjectDocuments: builder.mutation({
       query: ({ projectId, formData }) => ({
         url: `/projects/${projectId}/documents`,
@@ -201,6 +227,9 @@ export const {
   useGetProjectQuery,
   useUpdateProjectMutation,
   useGetProjectDocumentsQuery,
+  useGetProjectPaymentsQuery,
+  useCreateProjectPaymentMutation,
+  useAddProjectDocumentReviewCommentMutation,
   useUploadProjectDocumentsMutation,
   useDeleteProjectDocumentMutation,
   useUpdateProjectDocumentMutation,
