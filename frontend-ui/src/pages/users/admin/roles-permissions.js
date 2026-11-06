@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useRef, useState } from 'react'
+import Modal from '../../../components/common/Modal'
 import {
   useCreateAdminPermissionMutation,
   useCreateAdminRoleMutation,
@@ -27,43 +28,8 @@ const RoleDialog = ({ role, onClose, onSave, isSaving }) => {
   const [isActive, setIsActive] = useState(() => role?.is_active !== false)
   const [submitError, setSubmitError] = useState('')
   const nameInputRef = useRef(null)
-  const dialogRef = useRef(null)
-  const previousActiveElementRef = useRef(null)
   const preview = roleCodePreview(roleName)
   const dialogTitle = isEditing ? 'Edit role' : 'Add a role'
-
-  useEffect(() => {
-    previousActiveElementRef.current = document.activeElement
-    nameInputRef.current?.focus()
-    return () => previousActiveElementRef.current?.focus()
-  }, [])
-
-  useEffect(() => {
-    const handleKeyDown = (event) => {
-      if (event.key === 'Escape' && !isSaving) {
-        onClose()
-        return
-      }
-
-      if (event.key !== 'Tab' || !dialogRef.current) return
-      const focusableElements = dialogRef.current.querySelectorAll(
-        'button:not([disabled]), input:not([disabled]), textarea:not([disabled])'
-      )
-      const firstElement = focusableElements[0]
-      const lastElement = focusableElements[focusableElements.length - 1]
-
-      if (event.shiftKey && document.activeElement === firstElement) {
-        event.preventDefault()
-        lastElement?.focus()
-      } else if (!event.shiftKey && document.activeElement === lastElement) {
-        event.preventDefault()
-        firstElement?.focus()
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isSaving, onClose])
 
   const submit = async (event) => {
     event.preventDefault()
@@ -86,15 +52,15 @@ const RoleDialog = ({ role, onClose, onSave, isSaving }) => {
   }
 
   return (
-    <div className="fixed inset-0 z-[60] grid place-items-center overflow-y-auto bg-slate-950/45 p-4">
-      <section
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="role-dialog-title"
-        data-role-dialog
-        className="my-auto w-full max-w-lg border border-slate-200 bg-white shadow-2xl"
-      >
+    <Modal
+      ariaLabelledBy="role-dialog-title"
+      isDismissible={!isSaving}
+      closeOnBackdrop={false}
+      initialFocusRef={nameInputRef}
+      onClose={onClose}
+      overlayClassName="fixed inset-0 z-[60] grid place-items-center overflow-y-auto bg-slate-950/45 p-4"
+      panelClassName="my-auto w-full max-w-lg border border-slate-200 bg-white shadow-2xl"
+    >
         <header className="flex items-start justify-between gap-5 border-b border-slate-200 px-6 py-5">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-700">
@@ -207,8 +173,7 @@ const RoleDialog = ({ role, onClose, onSave, isSaving }) => {
             </button>
           </div>
         </form>
-      </section>
-    </div>
+    </Modal>
   )
 }
 
@@ -363,8 +328,6 @@ const PermissionDialog = ({
   const [submitError, setSubmitError] = useState('')
   const [assignmentErrors, setAssignmentErrors] = useState({ roles: false, plans: false })
   const keyInputRef = useRef(null)
-  const dialogRef = useRef(null)
-  const previousActiveElementRef = useRef(null)
   const assignableRoles = roles.filter(
     (role) => String(role.role_code || '').trim().toUpperCase() !== 'ADMIN'
   )
@@ -384,39 +347,6 @@ const PermissionDialog = ({
     !rolesError &&
     !plansLoading &&
     !plansError
-
-  useEffect(() => {
-    previousActiveElementRef.current = document.activeElement
-    keyInputRef.current?.focus()
-    return () => previousActiveElementRef.current?.focus()
-  }, [])
-
-  useEffect(() => {
-    const handleKeyDown = (event) => {
-      if (event.key === 'Escape' && !isSaving) {
-        onClose()
-        return
-      }
-
-      if (event.key !== 'Tab' || !dialogRef.current) return
-      const focusableElements = dialogRef.current.querySelectorAll(
-        'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled])'
-      )
-      const firstElement = focusableElements[0]
-      const lastElement = focusableElements[focusableElements.length - 1]
-
-      if (event.shiftKey && document.activeElement === firstElement) {
-        event.preventDefault()
-        lastElement?.focus()
-      } else if (!event.shiftKey && document.activeElement === lastElement) {
-        event.preventDefault()
-        firstElement?.focus()
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isSaving, onClose])
 
   const submit = async (event) => {
     event.preventDefault()
@@ -448,14 +378,15 @@ const PermissionDialog = ({
   }
 
   return (
-    <div className="fixed inset-0 z-[60] grid place-items-center overflow-y-auto bg-slate-950/45 p-4">
-      <section
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="permission-dialog-title"
-        className="my-auto w-full max-w-2xl border border-slate-200 bg-white shadow-2xl"
-      >
+    <Modal
+      ariaLabelledBy="permission-dialog-title"
+      isDismissible={!isSaving}
+      closeOnBackdrop={false}
+      initialFocusRef={keyInputRef}
+      onClose={onClose}
+      overlayClassName="fixed inset-0 z-[60] grid place-items-center overflow-y-auto bg-slate-950/45 p-4"
+      panelClassName="my-auto w-full max-w-2xl border border-slate-200 bg-white shadow-2xl"
+    >
         <header className="flex items-start justify-between gap-5 border-b border-slate-200 px-6 py-5">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-700">
@@ -627,8 +558,7 @@ const PermissionDialog = ({
             </button>
           </div>
         </form>
-      </section>
-    </div>
+    </Modal>
   )
 }
 

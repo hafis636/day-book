@@ -1,5 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
-import { useCreateProjectPaymentMutation } from '../../../../../../redux/services/users/usersApi'
+import { useRef, useState } from 'react'
+import Modal from '../../../../components/common/Modal'
+import {
+  useCreateProjectPaymentMutation,
+  useUpdateProjectPaymentMutation,
+} from '../../../../redux/services/users/usersApi'
 
 const paymentMethods = [
   ['cash', 'Cash'],
@@ -11,6 +15,8 @@ const paymentMethods = [
 ]
 
 const paymentStatuses = [
+  ['pending', 'Pending'],
+  ['overdue', 'Overdue'],
   ['advance', 'Advance'],
   ['partially_paid', 'Partially paid'],
   ['completed', 'Completed'],
@@ -30,57 +36,36 @@ const FieldLabel = ({ htmlFor, children, required = false }) => (
   </label>
 )
 
-const AddPaymentForm = ({ projectId, onClose }) => {
-  const dialogRef = useRef(null)
+const AddPaymentForm = ({
+  projectId,
+  payment,
+  transactionType = 'income',
+  onClose,
+}) => {
+  const isExpense = (payment?.type || transactionType) === 'expense'
+  const transactionLabel = isExpense ? 'expense' : 'payment'
+  const sectionLabel = isExpense ? 'expenses' : 'payments'
   const titleRef = useRef(null)
   const [submissionError, setSubmissionError] = useState('')
-  const [createProjectPayment, { isLoading }] = useCreateProjectPaymentMutation()
+  const [status, setStatus] = useState(payment?.status || 'advance')
+  const [paymentMethod, setPaymentMethod] = useState(payment?.payment_method || '')
+  const [createProjectPayment, { isLoading: isCreating }] =
+    useCreateProjectPaymentMutation()
+  const [updateProjectPayment, { isLoading: isUpdating }] =
+    useUpdateProjectPaymentMutation()
+  const isLoading = isCreating || isUpdating
   const isSavingRef = useRef(isLoading)
   isSavingRef.current = isLoading
-
-  useEffect(() => {
-    const previouslyFocusedElement = window.document.activeElement
-    const previousBodyOverflow = window.document.body.style.overflow
-    window.document.body.style.overflow = 'hidden'
-    titleRef.current?.focus()
-
-    const handleKeyDown = (event) => {
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        if (!isSavingRef.current) onClose()
-        return
-      }
-
-      if (event.key !== 'Tab' || !dialogRef.current) return
-      const focusableElements = Array.from(
-        dialogRef.current.querySelectorAll(
-          'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled])'
-        )
-      )
-      const firstElement = focusableElements[0]
-      const lastElement = focusableElements[focusableElements.length - 1]
-
-      if (event.shiftKey && window.document.activeElement === firstElement) {
-        event.preventDefault()
-        lastElement?.focus()
-      } else if (!event.shiftKey && window.document.activeElement === lastElement) {
-        event.preventDefault()
-        firstElement?.focus()
-      }
-    }
-
-    window.document.addEventListener('keydown', handleKeyDown)
-    return () => {
-      window.document.removeEventListener('keydown', handleKeyDown)
-      window.document.body.style.overflow = previousBodyOverflow
-      previouslyFocusedElement?.focus()
-    }
-  }, [onClose])
+  const isPendingOrOverdue = ['pending', 'overdue'].includes(status)
 
   const submitPayment = async (event) => {
     event.preventDefault()
     const form = event.currentTarget
     if (isSavingRef.current) return
+    const partyNameInput = form.elements.namedItem('party_name')
+    partyNameInput.setCustomValidity(
+      partyNameInput.value.trim() ? '' : 'Party name is required'
+    )
     if (!form.checkValidity()) {
       form.reportValidity()
       return
@@ -88,44 +73,52 @@ const AddPaymentForm = ({ projectId, onClose }) => {
 
     setSubmissionError('')
     const values = new FormData(form)
-    const payment = Object.fromEntries(values.entries())
-    payment.title = payment.title.trim()
-    payment.amount = Number(payment.amount)
-    payment.transaction_date = payment.transaction_date || null
-    payment.description = payment.description.trim()
-    payment.category = payment.category.trim()
-    payment.party_name = payment.party_name.trim()
-    payment.reference_number = payment.reference_number.trim()
+    const paymentDetails = Object.fromEntries(values.entries())
+    paymentDetails.type = payment?.type || transactionType
+    const submittedIsPendingOrOverdue = ['pending', 'overdue'].includes(paymentDetails.status)
+    paymentDetails.title = paymentDetails.title.trim()
+    paymentDetails.amount = Number(paymentDetails.amount)
+    paymentDetails.description = paymentDetails.description.trim()
+    paymentDetails.category = paymentDetails.category.trim()
+    paymentDetails.party_name = paymentDetails.party_name.trim()
+    paymentDetails.transaction_date = paymentDetails.transaction_date || null
+    paymentDetails.payment_method = submittedIsPendingOrOverdue
+      ? null
+      : paymentDetails.payment_method
+    paymentDetails.reference_number = submittedIsPendingOrOverdue
+      ? null
+      : paymentDetails.reference_number.trim()
 
     try {
-      await createProjectPayment({ projectId, ...payment }).unwrap()
+      if (payment?.id) {
+        await updateProjectPayment({
+          projectId,
+          paymentId: payment.id,
+          ...paymentDetails,
+        }).unwrap()
+      } else {
+        await createProjectPayment({ projectId, ...paymentDetails }).unwrap()
+      }
       onClose()
     } catch (error) {
       setSubmissionError(
-        error?.data?.error || 'Unable to save the payment. Please try again.'
+        error?.data?.error || `Unable to ${payment?.id ? 'update' : 'save'} the ${transactionLabel}. Please try again.`
       )
     }
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 p-3 backdrop-blur-[2px] sm:p-6"
-      onMouseDown={(event) => {
-        if (!isLoading && event.target === event.currentTarget) onClose()
-      }}
+    <Modal
+      ariaLabelledBy="payment-modal-title"
+      ariaDescribedBy="payment-modal-description"
+      isDismissible={!isLoading}
+      initialFocusRef={titleRef}
+      onClose={onClose}
     >
-      <section
-        ref={dialogRef}
-        aria-labelledby="payment-modal-title"
-        aria-describedby="payment-modal-description"
-        aria-modal="true"
-        className="my-auto flex max-h-[calc(100vh-1.5rem)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-slate-900/10 sm:max-h-[calc(100vh-3rem)]"
-        role="dialog"
-      >
         <header className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-5 sm:px-7">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.14em] text-blue-700">
-              Project payments
+              Project {sectionLabel}
             </p>
             <h2
               id="payment-modal-title"
@@ -133,15 +126,19 @@ const AddPaymentForm = ({ projectId, onClose }) => {
               tabIndex="-1"
               className="mt-1 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl"
             >
-              Add a payment
+              {payment?.id
+                ? `Edit ${transactionLabel}`
+                : `Add ${isExpense ? 'an expense' : 'a payment'}`}
             </h2>
             <p id="payment-modal-description" className="mt-1.5 text-sm leading-5 text-slate-600">
-              Record a payment for this project.
+              {payment?.id
+                ? `Update this project ${transactionLabel}.`
+                : `Record a ${transactionLabel} for this project.`}
             </p>
           </div>
           <button
             type="button"
-            aria-label="Close add payment form"
+            aria-label={`Close add ${transactionLabel} form`}
             disabled={isLoading}
             onClick={onClose}
             className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
@@ -161,6 +158,7 @@ const AddPaymentForm = ({ projectId, onClose }) => {
                 maxLength="255"
                 name="title"
                 placeholder="e.g. Electrical work milestone"
+                defaultValue={payment?.title || ''}
                 required
               />
             </div>
@@ -172,49 +170,59 @@ const AddPaymentForm = ({ projectId, onClose }) => {
                 min="0.01"
                 name="amount"
                 placeholder="0.00"
+                defaultValue={payment?.amount ?? ''}
                 required
                 step="0.01"
                 type="number"
               />
             </div>
             <div>
-              <FieldLabel htmlFor="payment-date">Transaction date</FieldLabel>
-              <input
-                className={inputClasses}
-                id="payment-date"
-                name="transaction_date"
-                type="date"
-              />
-            </div>
-            <div>
-              <FieldLabel htmlFor="payment-method" required>Payment method</FieldLabel>
-              <select
-                className={inputClasses}
-                defaultValue=""
-                id="payment-method"
-                name="payment_method"
-                required
-              >
-                <option disabled value="">Select a method</option>
-                {paymentMethods.map(([value, label]) => (
-                  <option key={value} value={value}>{label}</option>
-                ))}
-              </select>
-            </div>
-            <div>
               <FieldLabel htmlFor="payment-status" required>Status</FieldLabel>
               <select
                 className={inputClasses}
-                defaultValue="advance"
                 id="payment-status"
                 name="status"
+                onChange={(event) => setStatus(event.target.value)}
                 required
+                value={status}
               >
                 {paymentStatuses.map(([value, label]) => (
                   <option key={value} value={value}>{label}</option>
                 ))}
               </select>
             </div>
+            <div>
+              <FieldLabel htmlFor="payment-date">
+                {isPendingOrOverdue ? 'Due date' : 'Transaction date'}
+              </FieldLabel>
+              <input
+                className={inputClasses}
+                defaultValue={payment?.transaction_date?.slice(0, 10) || ''}
+                id="payment-date"
+                name="transaction_date"
+                type="date"
+              />
+            </div>
+            {!isPendingOrOverdue && (
+              <>
+                <div>
+                  <FieldLabel htmlFor="payment-method" required>Payment method</FieldLabel>
+                  <select
+                    className={inputClasses}
+                    onChange={(event) => setPaymentMethod(event.target.value)}
+                    value={paymentMethod}
+                    id="payment-method"
+                    name="payment_method"
+                    required
+                  >
+                    <option disabled value="">Select a method</option>
+                    {paymentMethods.map(([value, label]) => (
+                      <option key={value} value={value}>{label}</option>
+                    ))}
+                  </select>
+                </div>
+              </>
+            )}
             <div>
               <FieldLabel htmlFor="payment-category">Category</FieldLabel>
               <input
@@ -223,28 +231,34 @@ const AddPaymentForm = ({ projectId, onClose }) => {
                 maxLength="100"
                 name="category"
                 placeholder="e.g. Materials"
+                defaultValue={payment?.category || ''}
               />
             </div>
             <div>
-              <FieldLabel htmlFor="payment-party-name">Party name</FieldLabel>
+              <FieldLabel htmlFor="payment-party-name" required>Party name</FieldLabel>
               <input
                 className={inputClasses}
                 id="payment-party-name"
                 maxLength="255"
                 name="party_name"
                 placeholder="Person or company"
+                defaultValue={payment?.party_name || ''}
+                required
               />
             </div>
-            <div className="sm:col-span-2">
-              <FieldLabel htmlFor="payment-reference">Reference number</FieldLabel>
-              <input
-                className={inputClasses}
-                id="payment-reference"
-                maxLength="255"
-                name="reference_number"
-                placeholder="Optional transaction or cheque reference"
-              />
-            </div>
+            {!isPendingOrOverdue && (
+              <div className="sm:col-span-2">
+                <FieldLabel htmlFor="payment-reference">Reference number</FieldLabel>
+                <input
+                  className={inputClasses}
+                  id="payment-reference"
+                  maxLength="255"
+                  name="reference_number"
+                  placeholder="Optional transaction or cheque reference"
+                  defaultValue={payment?.reference_number || ''}
+                />
+              </div>
+            )}
             <div className="sm:col-span-2">
               <FieldLabel htmlFor="payment-description">Description</FieldLabel>
               <textarea
@@ -253,6 +267,7 @@ const AddPaymentForm = ({ projectId, onClose }) => {
                 maxLength="5000"
                 name="description"
                 rows="3"
+                defaultValue={payment?.description || ''}
               />
             </div>
           </div>
@@ -277,12 +292,17 @@ const AddPaymentForm = ({ projectId, onClose }) => {
               disabled={isLoading}
               type="submit"
             >
-              {isLoading ? 'Saving…' : 'Save payment'}
+              {isLoading
+                ? payment?.id
+                  ? 'Updating…'
+                  : 'Saving…'
+                : payment?.id
+                  ? `Update ${transactionLabel}`
+                  : `Save ${transactionLabel}`}
             </button>
           </footer>
         </form>
-      </section>
-    </div>
+    </Modal>
   )
 }
 

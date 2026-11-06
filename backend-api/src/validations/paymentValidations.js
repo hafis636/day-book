@@ -8,10 +8,14 @@ const PAYMENT_METHODS = new Set([
 ]);
 
 const PAYMENT_STATUSES = new Set([
+  'pending',
+  'overdue',
   'advance',
   'partially_paid',
   'completed',
 ])
+
+const TRANSACTION_TYPES = new Set(['income', 'expense'])
 
 const isValidDate = (value) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
@@ -33,6 +37,18 @@ const optionalText = (payment, field, maxLength) => {
 
 const validatePayment = (body) => {
   const payment = body || {};
+  const type =
+    payment.type === undefined
+      ? 'income'
+      : typeof payment.type === 'string'
+        ? payment.type.trim().toLowerCase()
+        : '';
+  const status =
+    typeof payment.status === 'string' ? payment.status.trim().toLowerCase() : '';
+  if (!TRANSACTION_TYPES.has(type)) {
+    return { error: 'A valid transaction type is required' };
+  }
+
   const title = typeof payment.title === 'string' ? payment.title.trim() : '';
   if (!title) return { error: 'Payment title is required' };
   if (title.length > 255) {
@@ -47,11 +63,13 @@ const validatePayment = (body) => {
     return { error: 'Payment amount must be greater than 0' };
   }
 
-  if (!PAYMENT_METHODS.has(payment.payment_method)) {
-    return { error: 'A valid payment method is required' };
-  }
-  if (!PAYMENT_STATUSES.has(payment.status)) {
+  if (!PAYMENT_STATUSES.has(status)) {
     return { error: 'A valid payment status is required' };
+  }
+
+  const isPendingOrOverdue = ['pending', 'overdue'].includes(status);
+  if (!isPendingOrOverdue && !PAYMENT_METHODS.has(payment.payment_method)) {
+    return { error: 'A valid payment method is required' };
   }
 
   const transactionDate = payment.transaction_date || null;
@@ -59,7 +77,9 @@ const validatePayment = (body) => {
     transactionDate !== null &&
     (typeof transactionDate !== 'string' || !isValidDate(transactionDate))
   ) {
-    return { error: 'Enter a valid transaction date' };
+    return {
+      error: `Enter a valid ${isPendingOrOverdue ? 'due' : 'transaction'} date`,
+    };
   }
 
   const description = optionalText(payment, 'description', 5000);
@@ -68,20 +88,24 @@ const validatePayment = (body) => {
   if (category.error) return category;
   const partyName = optionalText(payment, 'party_name', 255);
   if (partyName.error) return partyName;
-  const referenceNumber = optionalText(payment, 'reference_number', 255);
+  if (!partyName.value) return { error: 'Party name is required' };
+  const referenceNumber = isPendingOrOverdue
+    ? { value: null }
+    : optionalText(payment, 'reference_number', 255);
   if (referenceNumber.error) return referenceNumber;
 
   return {
     value: {
+      type,
       title,
       description: description.value,
       amount,
       transaction_date: transactionDate,
       category: category.value,
       party_name: partyName.value,
-      payment_method: payment.payment_method,
+      payment_method: isPendingOrOverdue ? null : payment.payment_method,
       reference_number: referenceNumber.value,
-      status: payment.status,
+      status,
     },
   };
 };

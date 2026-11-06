@@ -162,6 +162,25 @@ export const usersApi = createApi({
         { type: "ProjectPayments", id: projectId },
       ],
     }),
+    updateProjectPayment: builder.mutation({
+      query: ({ projectId, paymentId, ...payment }) => ({
+        url: `/projects/${projectId}/payments/${paymentId}`,
+        method: "PATCH",
+        body: payment,
+      }),
+      invalidatesTags: (result, error, { projectId }) => [
+        { type: "ProjectPayments", id: projectId },
+      ],
+    }),
+    deleteProjectPayment: builder.mutation({
+      query: ({ projectId, paymentId }) => ({
+        url: `/projects/${projectId}/payments/${paymentId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (result, error, { projectId }) => [
+        { type: "ProjectPayments", id: projectId },
+      ],
+    }),
     addProjectDocumentReviewComment: builder.mutation({
       query: ({ projectId, documentId, comment }) => ({
         url: `/projects/${projectId}/documents/${documentId}/review-comments`,
@@ -229,6 +248,8 @@ export const {
   useGetProjectDocumentsQuery,
   useGetProjectPaymentsQuery,
   useCreateProjectPaymentMutation,
+  useUpdateProjectPaymentMutation,
+  useDeleteProjectPaymentMutation,
   useAddProjectDocumentReviewCommentMutation,
   useUploadProjectDocumentsMutation,
   useDeleteProjectDocumentMutation,

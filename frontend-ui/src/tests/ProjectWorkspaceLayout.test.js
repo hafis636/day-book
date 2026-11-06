@@ -45,3 +45,13 @@ test('hides the project menu while the session permissions are unavailable', () 
 
   expect(screen.queryByRole('navigation', { name: 'Sections' })).not.toBeInTheDocument()
 })
+
+test('labels the expenditure route as Expenses without changing its path', () => {
+  mockSession = { user: { permissions: { PROJECT_RIGHT_MENU: true } } }
+  renderWorkspace()
+
+  expect(screen.getByRole('link', { name: 'Expenses' })).toHaveAttribute(
+    'href',
+    '/manage-projects/project-1/expenditure'
+  )
+})

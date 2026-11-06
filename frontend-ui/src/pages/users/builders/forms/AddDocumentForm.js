@@ -1,13 +1,14 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
+import Modal from '../../../../components/common/Modal'
 import {
   DOCUMENT_CATEGORIES,
   DOCUMENT_VISIBILITIES,
   REVIEW_STATUSES,
-} from '../../../constants'
+} from '../constants'
 import {
   useUpdateProjectDocumentMutation,
   useUploadProjectDocumentsMutation,
-} from '../../../../../../redux/services/users/usersApi'
+} from '../../../../redux/services/users/usersApi'
 
 const inputClasses =
   'mt-2 block w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20'
@@ -40,7 +41,6 @@ const AddDocumentForm = ({ projectId, document, onClose }) => {
   const isReviewStatusLocked = lockedReviewStatuses.has(currentReviewStatus)
   const [files, setFiles] = useState([])
   const [submissionError, setSubmissionError] = useState('')
-  const dialogRef = useRef(null)
   const titleRef = useRef(null)
   const [uploadProjectDocuments, { isLoading }] = useUploadProjectDocumentsMutation()
   const [updateProjectDocument, { isLoading: isUpdating }] =
@@ -48,46 +48,6 @@ const AddDocumentForm = ({ projectId, document, onClose }) => {
   const isSaving = isLoading || isUpdating
   const isSavingRef = useRef(isSaving)
   isSavingRef.current = isSaving
-
-  useEffect(() => {
-    const previouslyFocusedElement = window.document.activeElement
-    const previousBodyOverflow = window.document.body.style.overflow
-    window.document.body.style.overflow = 'hidden'
-    titleRef.current?.focus()
-
-    const handleKeyDown = (event) => {
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        if (!isSavingRef.current) onClose()
-        return
-      }
-
-      if (event.key !== 'Tab' || !dialogRef.current) return
-
-      const focusableElements = Array.from(
-        dialogRef.current.querySelectorAll(
-          'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-        )
-      )
-      const firstElement = focusableElements[0]
-      const lastElement = focusableElements[focusableElements.length - 1]
-
-      if (event.shiftKey && window.document.activeElement === firstElement) {
-        event.preventDefault()
-        lastElement?.focus()
-      } else if (!event.shiftKey && window.document.activeElement === lastElement) {
-        event.preventDefault()
-        firstElement?.focus()
-      }
-    }
-
-    window.document.addEventListener('keydown', handleKeyDown)
-    return () => {
-      window.document.removeEventListener('keydown', handleKeyDown)
-      window.document.body.style.overflow = previousBodyOverflow
-      previouslyFocusedElement?.focus()
-    }
-  }, [onClose])
 
   const submitDocument = async (event) => {
     event.preventDefault()
@@ -153,23 +113,14 @@ const AddDocumentForm = ({ projectId, document, onClose }) => {
     event.currentTarget.value = ''
   }
 
-  const handleBackdropClick = (event) => {
-    if (!isSaving && event.target === event.currentTarget) onClose()
-  }
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 p-3 backdrop-blur-[2px] sm:p-6"
-      onMouseDown={handleBackdropClick}
+    <Modal
+      ariaLabelledBy="document-modal-title"
+      ariaDescribedBy="document-modal-description"
+      isDismissible={!isSaving}
+      initialFocusRef={titleRef}
+      onClose={onClose}
     >
-      <section
-        ref={dialogRef}
-        aria-labelledby="document-modal-title"
-        aria-describedby="document-modal-description"
-        aria-modal="true"
-        className="my-auto flex max-h-[calc(100vh-1.5rem)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-slate-900/10 sm:max-h-[calc(100vh-3rem)]"
-        role="dialog"
-      >
         <header className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-5 sm:px-7">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.14em] text-blue-700">
@@ -195,7 +146,8 @@ const AddDocumentForm = ({ projectId, document, onClose }) => {
             type="button"
             aria-label={`Close ${isEditing ? 'edit' : 'add'} document form`}
             onClick={onClose}
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-xl leading-none text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+            disabled={isSaving}
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-xl leading-none text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <span aria-hidden="true">×</span>
           </button>
@@ -265,6 +217,7 @@ const AddDocumentForm = ({ projectId, document, onClose }) => {
             <div>
               <FieldLabel htmlFor="document-number">Document Number / Reference No / Version</FieldLabel>
               <input
+                ref={titleRef}
                 className={inputClasses}
                 id="document-number"
                 name="referenceNumber"
@@ -404,8 +357,7 @@ const AddDocumentForm = ({ projectId, document, onClose }) => {
             </button>
           </footer>
         </form>
-      </section>
-    </div>
+    </Modal>
   )
 }
 

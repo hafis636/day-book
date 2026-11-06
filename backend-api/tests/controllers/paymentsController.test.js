@@ -4,13 +4,19 @@ const assert = require('node:assert/strict');
 process.env.DATABASE_URL ||= 'postgresql://localhost:5432/test';
 
 const paymentsService = require('../../src/services/paymentsService');
-const { createProjectPayment, getProjectPayments } = require('../../src/controllers/paymentsController');
+const {
+  createProjectPayment,
+  deleteProjectPayment,
+  getProjectPayments,
+  updateProjectPayment,
+} = require('../../src/controllers/paymentsController');
 
 const projectId = '123e4567-e89b-42d3-a456-426614174000';
 const paymentBody = {
   title: 'Materials payment',
   amount: 125.5,
   payment_method: 'cash',
+  party_name: 'Supplier',
   status: 'advance',
 };
 
@@ -101,4 +107,65 @@ test('returns 404 when the project is not owned by the authenticated user', asyn
     listResponse
   );
   assert.equal(listResponse.statusCode, 404);
+});
+
+test('updates a payment with validated details for the authenticated project owner', async (t) => {
+  const originalUpdate = paymentsService.updateProjectPaymentForUser;
+  let updateArgs;
+  paymentsService.updateProjectPaymentForUser = async (...args) => {
+    updateArgs = args;
+    return { id: args[2], ...args[3] };
+  };
+  t.after(() => {
+    paymentsService.updateProjectPaymentForUser = originalUpdate;
+  });
+
+  const response = createResponse();
+  await updateProjectPayment(
+    {
+      params: {
+        id: projectId,
+        paymentId: '123e4567-e89b-42d3-a456-426614174001',
+      },
+      authenticatedUser: { id: 'user-1' },
+      body: paymentBody,
+    },
+    response
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(updateArgs[0], 'user-1');
+  assert.equal(updateArgs[1], projectId);
+  assert.equal(updateArgs[3].party_name, 'Supplier');
+});
+
+test('deletes a payment only through the authenticated project owner', async (t) => {
+  const originalDelete = paymentsService.deleteProjectPaymentForUser;
+  let deleteArgs;
+  paymentsService.deleteProjectPaymentForUser = async (...args) => {
+    deleteArgs = args;
+    return { id: args[2] };
+  };
+  t.after(() => {
+    paymentsService.deleteProjectPaymentForUser = originalDelete;
+  });
+
+  const response = createResponse();
+  await deleteProjectPayment(
+    {
+      params: {
+        id: projectId,
+        paymentId: '123e4567-e89b-42d3-a456-426614174001',
+      },
+      authenticatedUser: { id: 'user-1' },
+    },
+    response
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(deleteArgs, [
+    'user-1',
+    projectId,
+    '123e4567-e89b-42d3-a456-426614174001',
+  ]);
 });

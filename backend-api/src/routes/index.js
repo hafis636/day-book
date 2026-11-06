@@ -42,7 +42,9 @@ const {
 } = require('../controllers/permissionsController');
 const {
   createProjectPayment,
+  deleteProjectPayment,
   getProjectPayments,
+  updateProjectPayment,
 } = require('../controllers/paymentsController');
 
 const router = express.Router();
@@ -99,6 +101,16 @@ router.post(
 router.get('/projects', requireAuthenticatedSession, getProjects);
 router.get('/projects/:id/payments', requireAuthenticatedSession, getProjectPayments);
 router.post('/projects/:id/payments', requireAuthenticatedSession, createProjectPayment);
+router.patch(
+  '/projects/:id/payments/:paymentId',
+  requireAuthenticatedSession,
+  updateProjectPayment
+);
+router.delete(
+  '/projects/:id/payments/:paymentId',
+  requireAuthenticatedSession,
+  deleteProjectPayment
+);
 router.get('/projects/:id/documents', requireAuthenticatedSession, getProjectDocuments);
 router.post(
   '/projects/:id/documents/:documentId/review-comments',

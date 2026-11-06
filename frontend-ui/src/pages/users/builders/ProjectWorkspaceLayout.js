@@ -5,7 +5,7 @@ import { hasPermission } from '../../../utils/permissions'
 const projectSections = [
   { label: 'Documents', path: 'documents' },
   { label: 'Payments', path: 'payments' },
-  { label: 'Expenditure', path: 'expenditure' },
+  { label: 'Expenses', path: 'expenditure' },
   { label: 'Project Progress', path: 'project-progress' },
   { label: 'Labour Details', path: 'labour-details' },
   { label: 'Work Planning', path: 'work-planning' },

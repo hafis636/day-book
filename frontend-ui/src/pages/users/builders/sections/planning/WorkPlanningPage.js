@@ -1,11 +1,6 @@
-import ProjectSectionLayout from '../ProjectSectionLayout'
+import { createElement } from 'react'
+import WorkPlanningPageView from './WorkPlanningPageView'
 
-const WorkPlanningPage = () => (
-  <ProjectSectionLayout title="Work Planning">
-    <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-      This section is coming soon. Project information and tools for this area will appear here.
-    </p>
-  </ProjectSectionLayout>
-)
+const WorkPlanningPage = () => createElement(WorkPlanningPageView)
 
 export default WorkPlanningPage

@@ -43,7 +43,7 @@ jest.mock('../redux/services/users/usersApi', () => ({
   }),
 }))
 
-import AddDocumentForm from '../pages/users/builders/sections/documents/forms/AddDocumentForm'
+import AddDocumentForm from '../pages/users/builders/forms/AddDocumentForm'
 import DocumentsPage from '../pages/users/builders/sections/documents/DocumentsPage'
 
 beforeEach(() => {
