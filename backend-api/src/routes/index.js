@@ -109,6 +109,7 @@ router.get('/projects/:id/events', requireAuthenticatedSession, getProjectEvents
 router.post(
   '/projects/:id/events',
   requireAuthenticatedSession,
+  requirePermission('ADD_EVENTS'),
   parseProjectDocuments,
   createProjectEvent
 );

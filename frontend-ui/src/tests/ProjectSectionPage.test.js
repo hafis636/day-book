@@ -34,6 +34,16 @@ jest.mock('../pages/users/builders/sections/expenses/ExpenditurePage', () => ({
   ),
 }))
 
+jest.mock('../pages/users/builders/sections/progress/ProjectProgressPage', () => ({
+  __esModule: true,
+  default: ({ canAddEvents, canViewProgressCard }) => (
+    <div>
+      {canAddEvents ? 'Events with add access' : 'Events view only'}
+      {canViewProgressCard ? ' · Progress card visible' : ' · Progress card hidden'}
+    </div>
+  ),
+}))
+
 const renderSection = (section) =>
   render(
     <MemoryRouter initialEntries={[`/manage-projects/project-1/${section}`]}>
@@ -59,6 +69,7 @@ beforeEach(() => {
 test.each([
   ['payments', 'VIEW_PAYMENTS'],
   ['expenditure', 'VIEW_EXPENSES'],
+  ['project-progress', 'VIEW_PROGRESS'],
 ])('blocks direct access to %s without %s permission', (section) => {
   renderSection(section)
 
@@ -68,6 +79,17 @@ test.each([
     })
   ).toBeInTheDocument()
   expect(screen.queryByText(/view only/)).not.toBeInTheDocument()
+})
+
+test('passes progress-specific permissions to the project progress page', () => {
+  mockSession.user.permissions.VIEW_PROGRESS = true
+  mockSession.user.permissions.ADD_EVENTS = true
+  mockSession.user.permissions.VIEW_PROGRESS_CARD = true
+  renderSection('project-progress')
+
+  expect(
+    screen.getByText('Events with add access · Progress card visible')
+  ).toBeInTheDocument()
 })
 
 test('allows viewing payments without granting add permission', () => {

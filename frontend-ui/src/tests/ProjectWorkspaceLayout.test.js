@@ -96,3 +96,31 @@ test('shows payment and expense sections only with their view permissions', () =
   expect(screen.queryByRole('link', { name: 'Payments' })).not.toBeInTheDocument()
   expect(screen.getByRole('link', { name: 'Expenses' })).toBeInTheDocument()
 })
+
+test('shows Project Progress only with VIEW_PROGRESS', () => {
+  mockSession = {
+    user: {
+      permissions: {
+        PROJECT_RIGHT_MENU: true,
+        VIEW_PROGRESS: false,
+      },
+    },
+  }
+  const { rerender } = renderWorkspace()
+
+  expect(screen.queryByRole('link', { name: 'Project Progress' })).not.toBeInTheDocument()
+
+  mockSession.user.permissions.VIEW_PROGRESS = true
+  rerender(
+    <MemoryRouter>
+      <ProjectWorkspaceLayout projectId="project-1">
+        <div>Project content</div>
+      </ProjectWorkspaceLayout>
+    </MemoryRouter>
+  )
+
+  expect(screen.getByRole('link', { name: 'Project Progress' })).toHaveAttribute(
+    'href',
+    '/manage-projects/project-1/project-progress'
+  )
+})

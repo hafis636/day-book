@@ -6,7 +6,7 @@ const projectSections = [
   { label: 'Documents', path: 'documents' },
   { label: 'Payments', path: 'payments', permission: 'VIEW_PAYMENTS' },
   { label: 'Expenses', path: 'expenditure', permission: 'VIEW_EXPENSES' },
-  { label: 'Project Progress', path: 'project-progress' },
+  { label: 'Project Progress', path: 'project-progress', permission: 'VIEW_PROGRESS' },
   { label: 'Labour Details', path: 'labour-details' },
   { label: 'Work Planning', path: 'work-planning' },
   { label: 'Material Details', path: 'material-details' },

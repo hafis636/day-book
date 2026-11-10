@@ -13,7 +13,12 @@ jest.mock('../redux/services/users/usersApi', () => ({
 const renderProgress = (project, props = {}) =>
   render(
     <MemoryRouter>
-      <ProjectProgressPageView project={project} {...props} />
+      <ProjectProgressPageView
+        project={project}
+        canAddEvents
+        canViewProgressCard
+        {...props}
+      />
     </MemoryRouter>
   )
 
@@ -38,7 +43,12 @@ beforeEach(() => mockCreateProjectEvent.mockReset())
 test('uses transactions from the project response and displays them in progress', () => {
   render(
     <MemoryRouter>
-      <ProjectProgressPage project={project} projectId="project-1" />
+      <ProjectProgressPage
+        project={project}
+        projectId="project-1"
+        canAddEvents
+        canViewProgressCard
+      />
     </MemoryRouter>
   )
 
@@ -326,6 +336,10 @@ test('adds an event to the project calendar from the event form', async () => {
   expect(screen.getByLabelText(/Project phase/).options).toHaveLength(15)
   expect(screen.getByLabelText(/Start date/)).toBeRequired()
   expect(screen.getByLabelText(/End date/)).toBeRequired()
+  expect(screen.getByLabelText(/Start date/)).toHaveAttribute('min', '2026-03-01')
+  expect(screen.getByLabelText(/Start date/)).toHaveAttribute('max', '2026-04-30')
+  expect(screen.getByLabelText(/End date/)).toHaveAttribute('min', '2026-03-01')
+  expect(screen.getByLabelText(/End date/)).toHaveAttribute('max', '2026-04-30')
   expect(screen.getByLabelText(/Status/)).toBeRequired()
   expect(screen.getByLabelText(/Priority/)).toHaveValue('LOW')
 
@@ -395,6 +409,53 @@ test('double-clicking an active calendar day opens the event form for that date'
   expect(screen.getByLabelText(/End date/)).toHaveValue('2026-03-15')
 })
 
+test('prevents selecting event dates outside the project progress window', () => {
+  renderProgress(project)
+  fireEvent.click(screen.getByRole('button', { name: 'Add Events' }))
+  const startDateInput = screen.getByLabelText(/Start date/)
+  const endDateInput = screen.getByLabelText(/End date/)
+
+  fireEvent.change(startDateInput, { target: { value: '2026-02-28' } })
+  fireEvent.change(endDateInput, { target: { value: '2026-05-01' } })
+
+  expect(startDateInput).toBeInvalid()
+  expect(endDateInput).toBeInvalid()
+})
+
+test('hides event controls and disables calendar double-click without ADD_EVENTS', () => {
+  renderProgress(project, { canAddEvents: false })
+
+  expect(screen.queryByRole('button', { name: 'Add Events' })).not.toBeInTheDocument()
+  const calendarDay = screen.getByRole('button', { name: /Sunday, 15 March 2026/ })
+  expect(calendarDay).not.toHaveAttribute('title')
+
+  fireEvent.doubleClick(calendarDay)
+
+  expect(screen.queryByRole('heading', { name: 'Add event' })).not.toBeInTheDocument()
+})
+
+test('hides the monthly activity card and its detail double-click without VIEW_PROGRESS_CARD', () => {
+  renderProgress(project, {
+    canViewProgressCard: false,
+    events: [{
+      id: 'event-1',
+      title: 'Foundation inspection',
+      event_type: 'INSPECTION',
+      start_date: '2026-03-10',
+    }],
+  })
+
+  expect(
+    screen.queryByRole('complementary', { name: 'Activity this month' })
+  ).not.toBeInTheDocument()
+  const calendarDay = screen.getByRole('button', { name: /Sunday, 15 March 2026/ })
+  expect(calendarDay.closest('.mt-4.grid')).toHaveClass('grid-cols-1')
+  expect(calendarDay.closest('.mt-4.grid')).not.toHaveClass(
+    'xl:grid-cols-[minmax(0,1fr)_19rem]'
+  )
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+})
+
 test('submits event details to the backend and displays the saved event', async () => {
   const savedEvent = {
     id: 'event-1',
@@ -412,7 +473,12 @@ test('submits event details to the backend and displays the saved event', async 
 
   render(
     <MemoryRouter>
-      <ProjectProgressPage project={project} projectId="project-1" />
+      <ProjectProgressPage
+        project={project}
+        projectId="project-1"
+        canAddEvents
+        canViewProgressCard
+      />
     </MemoryRouter>
   )
 
@@ -470,7 +536,12 @@ test('keeps the event form open and shows an error when saving fails', async () 
 
   render(
     <MemoryRouter>
-      <ProjectProgressPage project={project} projectId="project-1" />
+      <ProjectProgressPage
+        project={project}
+        projectId="project-1"
+        canAddEvents
+        canViewProgressCard
+      />
     </MemoryRouter>
   )
 

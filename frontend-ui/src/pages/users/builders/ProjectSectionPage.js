@@ -28,6 +28,7 @@ const sectionPages = {
 const sectionPermissions = {
   payments: 'VIEW_PAYMENTS',
   expenditure: 'VIEW_EXPENSES',
+  'project-progress': 'VIEW_PROGRESS',
 }
 
 const formatSectionTitle = (section) =>
@@ -132,6 +133,14 @@ const ProjectSectionPage = () => {
           <SectionPage
             projectId={projectId}
             project={project}
+            canAddEvents={hasPermission(
+              session?.user?.permissions,
+              'ADD_EVENTS'
+            )}
+            canViewProgressCard={hasPermission(
+              session?.user?.permissions,
+              'VIEW_PROGRESS_CARD'
+            )}
             canAddPayment={hasPermission(
               session?.user?.permissions,
               'ADD_PAYMENT'

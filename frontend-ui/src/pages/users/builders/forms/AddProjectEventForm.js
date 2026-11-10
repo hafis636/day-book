@@ -32,6 +32,8 @@ const AddProjectEventForm = ({
   onAddEvent,
   initialStartDate = '',
   initialEndDate = '',
+  minDate = '',
+  maxDate = '',
 }) => {
   const titleRef = useRef(null)
   const [files, setFiles] = useState([])
@@ -210,6 +212,8 @@ const AddProjectEventForm = ({
               name="startDate"
               type="date"
               defaultValue={initialStartDate}
+              min={minDate}
+              max={maxDate}
               required
             />
           </div>
@@ -223,6 +227,8 @@ const AddProjectEventForm = ({
               name="endDate"
               type="date"
               defaultValue={initialEndDate}
+              min={minDate}
+              max={maxDate}
               required
             />
           </div>

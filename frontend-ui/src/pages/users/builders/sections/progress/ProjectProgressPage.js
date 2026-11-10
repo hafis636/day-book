@@ -6,7 +6,12 @@ import {
 
 const EMPTY_EVENTS = []
 
-const ProjectProgressPage = ({ project, projectId }) => {
+const ProjectProgressPage = ({
+  project,
+  projectId,
+  canAddEvents = false,
+  canViewProgressCard = false,
+}) => {
   const [createProjectEvent] = useCreateProjectEventMutation()
 
   const saveProjectEvent = async (event) => {
@@ -27,6 +32,8 @@ const ProjectProgressPage = ({ project, projectId }) => {
 
   return createElement(ProjectProgressPageView, {
     project,
+    canAddEvents,
+    canViewProgressCard,
     transactions: [
       ...(Array.isArray(project?.payments) ? project.payments : []),
       ...(Array.isArray(project?.expenses) ? project.expenses : []),

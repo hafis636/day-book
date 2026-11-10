@@ -205,7 +205,12 @@ const isPeriodWithinRange = (date, view, startDate, endDate) => {
 const clampDate = (date, startDate, endDate) =>
   date < startDate ? startDate : date > endDate ? endDate : date
 
-const MonthActivityDetails = ({ date, activities, onSelectDate }) => {
+const MonthActivityDetails = ({
+  date,
+  activities,
+  onSelectDate,
+  canViewProgressCard,
+}) => {
   const [selectedActivity, setSelectedActivity] = useState(null)
   const [activeImageIndex, setActiveImageIndex] = useState(0)
   const selectedImageDocuments = selectedActivity?.documents?.filter(
@@ -260,12 +265,12 @@ const MonthActivityDetails = ({ date, activities, onSelectDate }) => {
                   >
                     <button
                       type="button"
-                      title="Double-click to view activity details"
+                      title={canViewProgressCard ? 'Double-click to view activity details' : undefined}
                       onClick={() => onSelectDate(parseProjectDate(activity.date))}
-                      onDoubleClick={() => {
+                      onDoubleClick={canViewProgressCard ? () => {
                         setActiveImageIndex(0)
                         setSelectedActivity(activity)
-                      }}
+                      } : undefined}
                       className="w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700"
                     >
                       <span className="flex items-start justify-between gap-3">
@@ -650,6 +655,7 @@ const MonthCalendar = ({
   activities,
   onSelectDate,
   onAddEvent,
+  canAddEvents,
 }) => {
   const year = date.getFullYear()
   const month = date.getMonth()
@@ -694,9 +700,9 @@ const MonthCalendar = ({
                   : ''
               }`}
               aria-pressed={selected}
-              title={inRange ? 'Double-click to add an event' : undefined}
+              title={inRange && canAddEvents ? 'Double-click to add an event' : undefined}
               onClick={() => onSelectDate(calendarDate)}
-              onDoubleClick={() => onAddEvent(calendarDate)}
+              onDoubleClick={canAddEvents ? () => onAddEvent(calendarDate) : undefined}
               className={`group min-h-[4.75rem] min-w-0 border-b border-r border-slate-100 p-1.5 text-left transition-colors focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-700 sm:min-h-[7.25rem] sm:p-2 ${
                 !inRange
                   ? 'cursor-not-allowed bg-slate-50/70 text-slate-300'
@@ -846,6 +852,8 @@ const ProjectProgressPageView = ({
   events = EMPTY_EVENTS,
   isEventsError = false,
   onSaveEvent,
+  canAddEvents = false,
+  canViewProgressCard = false,
 }) => {
   const [isEventFormOpen, setIsEventFormOpen] = useState(false)
   const [eventDate, setEventDate] = useState('')
@@ -913,7 +921,7 @@ const ProjectProgressPageView = ({
   return (
     <ProjectSectionLayout
       title="Project Progress"
-      action={
+      action={canAddEvents && hasValidRange ? (
         <button
           type="button"
           onClick={() => openEventForm()}
@@ -921,13 +929,15 @@ const ProjectProgressPageView = ({
         >
           Add Events
         </button>
-      }
+      ) : undefined}
     >
       {isEventFormOpen && (
         <AddProjectEventForm
           onClose={() => setIsEventFormOpen(false)}
           initialStartDate={eventDate}
           initialEndDate={eventDate}
+          minDate={dateKey(startDate)}
+          maxDate={dateKey(endDate)}
           onAddEvent={async (event) => {
             const savedEvent = onSaveEvent ? await onSaveEvent(event) : event
             setCreatedProjectEvents((currentEvents) => [...currentEvents, savedEvent])
@@ -1094,7 +1104,7 @@ const ProjectProgressPageView = ({
 
             <div
               className={`mt-4 grid items-start gap-4 xl:gap-5 ${
-                activeView === 'Day'
+                activeView === 'Day' || !canViewProgressCard
                   ? 'grid-cols-1'
                   : 'grid-cols-1 xl:grid-cols-[minmax(0,1fr)_19rem]'
               }`}
@@ -1110,6 +1120,7 @@ const ProjectProgressPageView = ({
                     setActiveDate(date)
                     openEventForm(date)
                   }}
+                  canAddEvents={canAddEvents}
                 />
               )}
               {activeView === 'Year' && (
@@ -1124,19 +1135,20 @@ const ProjectProgressPageView = ({
                   }}
                 />
               )}
-              {activeView === 'Month' ? (
+              {activeView === 'Month' && canViewProgressCard ? (
                 <MonthActivityDetails
                   date={activeDate}
                   activities={monthActivities}
                   onSelectDate={setActiveDate}
+                  canViewProgressCard={canViewProgressCard}
                 />
-              ) : (
+              ) : activeView !== 'Month' ? (
                 <ActivityDetails
                   date={activeDate}
                   activities={activities}
                   isWithinRange={isActiveDateInRange}
                 />
-              )}
+              ) : null}
             </div>
           </>
         )}
