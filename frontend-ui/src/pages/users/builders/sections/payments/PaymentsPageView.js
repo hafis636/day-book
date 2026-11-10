@@ -111,6 +111,7 @@ const CollectionChart = ({
 
 const PaymentsPageView = ({
   projectId,
+  canAddPayment,
   isAddPaymentOpen,
   paymentToEdit,
   paymentActionError,
@@ -240,7 +241,7 @@ const PaymentsPageView = ({
     </>
   )
 
-  const action = (
+  const action = canAddPayment ? (
     <button
       type="button"
       onClick={() => onOpenPaymentForm()}
@@ -251,7 +252,7 @@ const PaymentsPageView = ({
       </svg>
       Add Payment
     </button>
-  )
+  ) : null
 
   return (
     <ProjectSectionLayout title="Payments" action={action}>
@@ -445,7 +446,7 @@ const PaymentsPageView = ({
           </div>
         </section>
       </div>
-      {isAddPaymentOpen && (
+      {isAddPaymentOpen && (paymentToEdit || canAddPayment) && (
         <AddPaymentForm
           projectId={projectId}
           payment={paymentToEdit}

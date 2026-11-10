@@ -27,14 +27,16 @@ jest.mock('../redux/services/users/usersApi', () => ({
     mockDeleteProjectPayment,
     { isLoading: false },
   ],
-  useGetProjectPaymentsQuery: () => ({
-    data: mockProjectPayments,
-    isLoading: false,
-    isError: false,
-  }),
 }))
 
-import PaymentsPage from '../pages/users/builders/sections/payments/PaymentsPage'
+import PaymentsPageComponent from '../pages/users/builders/sections/payments/PaymentsPage'
+
+const PaymentsPage = (props) => (
+  <PaymentsPageComponent
+    project={{ payments: mockProjectPayments.payments }}
+    {...props}
+  />
+)
 
 beforeEach(() => {
   mockIsSaving = false
@@ -54,7 +56,7 @@ beforeEach(() => {
 test('opens the payment form and submits a valid project transaction', async () => {
   render(
     <MemoryRouter>
-      <PaymentsPage projectId="project-1" />
+      <PaymentsPage projectId="project-1" canAddPayment />
     </MemoryRouter>
   )
 
@@ -108,7 +110,7 @@ test('shows API validation errors and keeps the payment form open', async () => 
 
   render(
     <MemoryRouter>
-      <PaymentsPage projectId="project-1" />
+      <PaymentsPage projectId="project-1" canAddPayment />
     </MemoryRouter>
   )
   await userEvent.click(screen.getByRole('button', { name: 'Add Payment' }))
@@ -129,7 +131,7 @@ test.each(['pending', 'overdue'])(
   async (status) => {
     render(
       <MemoryRouter>
-        <PaymentsPage projectId="project-1" />
+        <PaymentsPage projectId="project-1" canAddPayment />
       </MemoryRouter>
     )
     await userEvent.click(screen.getByRole('button', { name: 'Add Payment' }))
@@ -181,7 +183,7 @@ test('displays saved transactions returned by the payments API', () => {
 
   render(
     <MemoryRouter>
-      <PaymentsPage projectId="project-1" />
+      <PaymentsPage projectId="project-1" canAddPayment />
     </MemoryRouter>
   )
 
@@ -205,7 +207,7 @@ test('calculates the payment summary from project income transactions', () => {
 
   render(
     <MemoryRouter>
-      <PaymentsPage projectId="project-1" />
+      <PaymentsPage projectId="project-1" canAddPayment />
     </MemoryRouter>
   )
 
@@ -272,7 +274,7 @@ test('shows collections, payment sources, and outstanding payments from project 
 
   render(
     <MemoryRouter>
-      <PaymentsPage projectId="project-1" />
+      <PaymentsPage projectId="project-1" canAddPayment />
     </MemoryRouter>
   )
 
@@ -330,7 +332,7 @@ test('sorts all transactions and paginates with selectable page sizes', async ()
 
   render(
     <MemoryRouter>
-      <PaymentsPage projectId="project-1" />
+      <PaymentsPage projectId="project-1" canAddPayment />
     </MemoryRouter>
   )
 
@@ -397,7 +399,7 @@ test('edits an existing payment', async () => {
 
   render(
     <MemoryRouter>
-      <PaymentsPage projectId="project-1" />
+      <PaymentsPage projectId="project-1" canAddPayment />
     </MemoryRouter>
   )
 
@@ -444,7 +446,7 @@ test('deletes a payment after confirmation and generates a bill for paid payment
 
   render(
     <MemoryRouter>
-      <PaymentsPage projectId="project-1" />
+      <PaymentsPage projectId="project-1" canAddPayment />
     </MemoryRouter>
   )
 
@@ -513,9 +515,19 @@ test('does not offer bill generation for pending or overdue payments', () => {
 
   render(
     <MemoryRouter>
-      <PaymentsPage projectId="project-1" />
+      <PaymentsPage projectId="project-1" canAddPayment />
     </MemoryRouter>
   )
 
   expect(screen.queryByRole('button', { name: /Generate bill/ })).not.toBeInTheDocument()
+})
+
+test('hides the add-payment option without add permission', () => {
+  render(
+    <MemoryRouter>
+      <PaymentsPage projectId="project-1" />
+    </MemoryRouter>
+  )
+
+  expect(screen.queryByRole('button', { name: 'Add Payment' })).not.toBeInTheDocument()
 })

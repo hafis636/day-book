@@ -16,7 +16,6 @@ const mockRegisterUser = jest.fn();
 const mockCreateProject = jest.fn();
 const mockGetProjects = jest.fn();
 const mockGetProject = jest.fn();
-const mockGetProjectDocuments = jest.fn();
 const mockUpdateProject = jest.fn();
 const mockUploadProjectDocuments = jest.fn();
 const mockDeleteProjectDocument = jest.fn();
@@ -33,17 +32,11 @@ jest.mock('../redux/services/users/usersApi', () => ({
   useCreateProjectMutation: () => [mockCreateProject, { isLoading: false }],
   useGetProjectsQuery: () => mockGetProjects(),
   useGetProjectQuery: () => mockGetProject(),
-  useGetProjectDocumentsQuery: () => mockGetProjectDocuments(),
   useAddProjectDocumentReviewCommentMutation: () => [jest.fn(), { isLoading: false }],
   useUploadProjectDocumentsMutation: () => [mockUploadProjectDocuments, { isLoading: false }],
   useDeleteProjectDocumentMutation: () => [mockDeleteProjectDocument, { isLoading: false }],
   useUpdateProjectDocumentMutation: () => [mockUpdateProjectDocument, { isLoading: false }],
   useUpdateProjectMutation: () => [mockUpdateProject, { isLoading: false }],
-  useGetProjectPaymentsQuery: () => ({
-    data: { payments: [] },
-    isLoading: false,
-    isError: false,
-  }),
   useDeleteProjectPaymentMutation: () => [jest.fn(), { isLoading: false }],
 }));
 
@@ -117,13 +110,12 @@ beforeEach(() => {
             is_cover: false,
           },
         ],
+        payments: [],
+        expenses: [],
+        documents: [],
+        events: [],
       },
     },
-    isLoading: false,
-    isError: false,
-  });
-  mockGetProjectDocuments.mockReturnValue({
-    data: { documents: [] },
     isLoading: false,
     isError: false,
   });

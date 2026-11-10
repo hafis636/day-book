@@ -1,9 +1,10 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { API_BASE_URL } from "../../../config/api";
+import { createProjectEventBody } from "./projectEventRequest";
 
 export const usersApi = createApi({
   reducerPath: "usersApi",
-  tagTypes: ["Session", "Project", "ProjectDocuments", "ProjectPayments", "Plans", "AdminPlans", "Roles", "Permissions"],
+  tagTypes: ["Session", "Project", "ProjectDocuments", "ProjectPayments", "ProjectEvents", "Plans", "AdminPlans", "Roles", "Permissions"],
   baseQuery: fetchBaseQuery({
     baseUrl: API_BASE_URL,
     credentials: "include",
@@ -130,7 +131,7 @@ export const usersApi = createApi({
     }),
     getProject: builder.query({
       query: (id) => `/projects/${id}`,
-      providesTags: ["Project"],
+      providesTags: (result, error, id) => [{ type: "Project", id }],
     }),
     updateProject: builder.mutation({
       query: ({ id, formData }) => ({
@@ -160,6 +161,7 @@ export const usersApi = createApi({
       }),
       invalidatesTags: (result, error, { projectId }) => [
         { type: "ProjectPayments", id: projectId },
+        { type: "Project", id: projectId },
       ],
     }),
     updateProjectPayment: builder.mutation({
@@ -170,6 +172,7 @@ export const usersApi = createApi({
       }),
       invalidatesTags: (result, error, { projectId }) => [
         { type: "ProjectPayments", id: projectId },
+        { type: "Project", id: projectId },
       ],
     }),
     deleteProjectPayment: builder.mutation({
@@ -179,6 +182,26 @@ export const usersApi = createApi({
       }),
       invalidatesTags: (result, error, { projectId }) => [
         { type: "ProjectPayments", id: projectId },
+        { type: "Project", id: projectId },
+      ],
+    }),
+    getProjectEvents: builder.query({
+      query: (projectId) => `/projects/${projectId}/events`,
+      providesTags: (result, error, projectId) => [
+        { type: "ProjectEvents", id: projectId },
+      ],
+    }),
+    createProjectEvent: builder.mutation({
+      query: ({ projectId, ...event }) => {
+        return {
+          url: `/projects/${projectId}/events`,
+          method: "POST",
+          body: createProjectEventBody(event),
+        };
+      },
+      invalidatesTags: (result, error, { projectId }) => [
+        { type: "ProjectEvents", id: projectId },
+        { type: "Project", id: projectId },
       ],
     }),
     addProjectDocumentReviewComment: builder.mutation({
@@ -189,6 +212,7 @@ export const usersApi = createApi({
       }),
       invalidatesTags: (result, error, { projectId }) => [
         { type: "ProjectDocuments", id: projectId },
+        { type: "Project", id: projectId },
       ],
     }),
     uploadProjectDocuments: builder.mutation({
@@ -199,6 +223,7 @@ export const usersApi = createApi({
       }),
       invalidatesTags: (result, error, { projectId }) => [
         { type: "ProjectDocuments", id: projectId },
+        { type: "Project", id: projectId },
       ],
     }),
     deleteProjectDocument: builder.mutation({
@@ -208,6 +233,7 @@ export const usersApi = createApi({
       }),
       invalidatesTags: (result, error, { projectId }) => [
         { type: "ProjectDocuments", id: projectId },
+        { type: "Project", id: projectId },
       ],
     }),
     updateProjectDocument: builder.mutation({
@@ -218,6 +244,7 @@ export const usersApi = createApi({
       }),
       invalidatesTags: (result, error, { projectId }) => [
         { type: "ProjectDocuments", id: projectId },
+        { type: "Project", id: projectId },
       ],
     }),
   }),
@@ -250,6 +277,8 @@ export const {
   useCreateProjectPaymentMutation,
   useUpdateProjectPaymentMutation,
   useDeleteProjectPaymentMutation,
+  useGetProjectEventsQuery,
+  useCreateProjectEventMutation,
   useAddProjectDocumentReviewCommentMutation,
   useUploadProjectDocumentsMutation,
   useDeleteProjectDocumentMutation,

@@ -5,7 +5,6 @@ import { MemoryRouter } from 'react-router-dom'
 let mockProjectPayments
 let mockDeleteProjectPayment
 let mockCreateProjectPayment
-let mockRequestedProjectId
 
 jest.mock('../redux/services/users/usersApi', () => ({
   useCreateProjectPaymentMutation: () => [
@@ -14,18 +13,25 @@ jest.mock('../redux/services/users/usersApi', () => ({
   ],
   useUpdateProjectPaymentMutation: () => [jest.fn(), { isLoading: false }],
   useDeleteProjectPaymentMutation: () => [mockDeleteProjectPayment, { isLoading: false }],
-  useGetProjectPaymentsQuery: (projectId) => {
-    mockRequestedProjectId = projectId
-    return mockProjectPayments
-  },
 }))
 
-import ExpenditurePage from '../pages/users/builders/sections/expenses/ExpenditurePage'
+import ExpenditurePageComponent from '../pages/users/builders/sections/expenses/ExpenditurePage'
+
+const ExpenditurePage = (props) => (
+  <ExpenditurePageComponent
+    project={{
+      expenses: mockProjectPayments.data?.payments?.filter(
+        (payment) => payment.type === 'expense'
+      ),
+    }}
+    {...props}
+  />
+)
 
 const renderPage = () =>
   render(
     <MemoryRouter>
-      <ExpenditurePage projectId="project-42" />
+      <ExpenditurePage projectId="project-42" canAddExpense />
     </MemoryRouter>
   )
 
@@ -41,7 +47,6 @@ beforeEach(() => {
   mockCreateProjectPayment = jest.fn().mockReturnValue({
     unwrap: () => Promise.resolve({ payment: { id: 'expense-1', type: 'expense' } }),
   })
-  mockRequestedProjectId = null
 })
 
 test('adds an expense through the project transaction API with type expense', async () => {
@@ -76,7 +81,7 @@ test('adds an expense through the project transaction API with type expense', as
   expect(screen.queryByRole('dialog', { name: 'Add an expense' })).not.toBeInTheDocument()
 })
 
-test('builds the expenses dashboard from only the current project expense records', () => {
+test('builds the expenses dashboard from expense records in project details', () => {
   const now = new Date()
   const currentMonthDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-10`
   const previousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 10)
@@ -132,7 +137,6 @@ test('builds the expenses dashboard from only the current project expense record
 
   renderPage()
 
-  expect(mockRequestedProjectId).toBe('project-42')
   expect(screen.getByRole('heading', { name: 'Expenses' })).toBeInTheDocument()
 
   const summary = screen.getByRole('region', { name: 'Expense Overview' })
@@ -209,18 +213,25 @@ test('shows empty states when the project has no expense records', () => {
   expect(screen.getByText('No expenses have been added to this project yet.')).toBeInTheDocument()
 })
 
-test('shows loading and error feedback when project payment data is unavailable', () => {
-  mockProjectPayments = { data: undefined, isLoading: true, isError: false }
-  const { rerender } = renderPage()
+test('shows empty states when the project response contains no expenses', () => {
+  mockProjectPayments = {
+    data: { payments: [] },
+    isLoading: false,
+    isError: false,
+  }
+  renderPage()
 
-  expect(screen.getByText('Loading project expenses…')).toBeInTheDocument()
+  expect(screen.getByText('No expense categories have been recorded.')).toBeInTheDocument()
+  expect(screen.getByText('No pending or overdue expenses.')).toBeInTheDocument()
+  expect(screen.getByText('No expenses have been added to this project yet.')).toBeInTheDocument()
+})
 
-  mockProjectPayments = { data: undefined, isLoading: false, isError: true }
-  rerender(
+test('hides the add-expense option without add permission', () => {
+  render(
     <MemoryRouter>
       <ExpenditurePage projectId="project-42" />
     </MemoryRouter>
   )
 
-  expect(screen.getByText('Unable to load project expenses. Please try again.')).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Add Expense' })).not.toBeInTheDocument()
 })

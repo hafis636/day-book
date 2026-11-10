@@ -36,15 +36,17 @@ jest.mock('../redux/services/users/usersApi', () => ({
     mockAddReviewComment,
     { isLoading: false },
   ],
-  useGetProjectDocumentsQuery: () => ({
-    data: mockProjectDocuments,
-    isLoading: false,
-    isError: false,
-  }),
 }))
 
 import AddDocumentForm from '../pages/users/builders/forms/AddDocumentForm'
-import DocumentsPage from '../pages/users/builders/sections/documents/DocumentsPage'
+import DocumentsPageComponent from '../pages/users/builders/sections/documents/DocumentsPage'
+
+const DocumentsPage = (props) => (
+  <DocumentsPageComponent
+    project={{ documents: mockProjectDocuments.documents }}
+    {...props}
+  />
+)
 
 beforeEach(() => {
   mockUploadProjectDocuments = jest.fn()

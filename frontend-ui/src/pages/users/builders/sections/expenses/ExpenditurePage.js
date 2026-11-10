@@ -2,7 +2,6 @@ import { createElement, useCallback, useState } from 'react'
 import ExpenditurePageView from './ExpenditurePageView'
 import {
   useDeleteProjectPaymentMutation,
-  useGetProjectPaymentsQuery,
 } from '../../../../../redux/services/users/usersApi'
 
 const currencyFormatter = new Intl.NumberFormat('en-IN', {
@@ -65,7 +64,7 @@ const formatExpenseMethod = (method) =>
         .join(' ')
     : '—'
 
-const ExpenditurePage = ({ projectId }) => {
+const ExpenditurePage = ({ project, projectId, canAddExpense = false }) => {
   const [actionError, setActionError] = useState('')
   const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false)
   const [deleteProjectPayment, { isLoading: isDeletingExpense }] =
@@ -74,18 +73,13 @@ const ExpenditurePage = ({ projectId }) => {
     setIsAddExpenseOpen(false)
   }, [])
   const openExpenseForm = useCallback(() => {
+    if (!canAddExpense) return
     setIsAddExpenseOpen(true)
-  }, [])
-  const {
-    data: paymentsData,
-    isLoading: isLoadingPayments,
-    isError: isPaymentsError,
-  } = useGetProjectPaymentsQuery(projectId)
-  const expenses = Array.isArray(paymentsData?.payments)
-    ? paymentsData.payments.filter((payment) => payment.type === 'expense')
-    : []
-  const isDataAvailable =
-    !isLoadingPayments && !isPaymentsError && Array.isArray(paymentsData?.payments)
+  }, [canAddExpense])
+  const expenses = Array.isArray(project?.expenses) ? project.expenses : []
+  const isDataAvailable = Array.isArray(project?.expenses)
+  const isLoadingPayments = false
+  const isPaymentsError = false
   const transactions = expenses.map((expense) => ({
     id: expense.id,
     title: expense.title,
@@ -109,6 +103,7 @@ const ExpenditurePage = ({ projectId }) => {
     try {
       await deleteProjectPayment({
         projectId,
+        canAddExpense,
         paymentId: expense.id,
       }).unwrap()
     } catch (error) {
@@ -218,6 +213,7 @@ const ExpenditurePage = ({ projectId }) => {
 
   return createElement(ExpenditurePageView, {
     projectId,
+    canAddExpense,
     actionError,
     isAddExpenseOpen,
     isDeletingExpense,

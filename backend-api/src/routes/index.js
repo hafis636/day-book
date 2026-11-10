@@ -46,6 +46,10 @@ const {
   getProjectPayments,
   updateProjectPayment,
 } = require('../controllers/paymentsController');
+const {
+  createProjectEvent,
+  getProjectEvents,
+} = require('../controllers/projectEventsController');
 
 const router = express.Router();
 
@@ -101,6 +105,13 @@ router.post(
 router.get('/projects', requireAuthenticatedSession, getProjects);
 router.get('/projects/:id/payments', requireAuthenticatedSession, getProjectPayments);
 router.post('/projects/:id/payments', requireAuthenticatedSession, createProjectPayment);
+router.get('/projects/:id/events', requireAuthenticatedSession, getProjectEvents);
+router.post(
+  '/projects/:id/events',
+  requireAuthenticatedSession,
+  parseProjectDocuments,
+  createProjectEvent
+);
 router.patch(
   '/projects/:id/payments/:paymentId',
   requireAuthenticatedSession,

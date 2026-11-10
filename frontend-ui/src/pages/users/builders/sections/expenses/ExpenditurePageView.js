@@ -102,6 +102,7 @@ const ExpenseActionIcon = () => (
 
 const ExpenditurePageView = ({
   projectId,
+  canAddExpense,
   actionError,
   isAddExpenseOpen,
   isDeletingExpense,
@@ -211,7 +212,7 @@ const ExpenditurePageView = ({
     </button>
   )
 
-  const action = (
+  const action = canAddExpense ? (
     <button
       type="button"
       onClick={onOpenExpenseForm}
@@ -222,7 +223,7 @@ const ExpenditurePageView = ({
       </svg>
       Add Expense
     </button>
-  )
+  ) : null
 
   return (
     <ProjectSectionLayout title="Expenses" action={action}>
@@ -468,7 +469,7 @@ const ExpenditurePageView = ({
           </div>
         </section>
       </div>
-      {isAddExpenseOpen && (
+      {canAddExpense && isAddExpenseOpen && (
         <AddPaymentForm
           projectId={projectId}
           transactionType="expense"

@@ -4,8 +4,8 @@ import { hasPermission } from '../../../utils/permissions'
 
 const projectSections = [
   { label: 'Documents', path: 'documents' },
-  { label: 'Payments', path: 'payments' },
-  { label: 'Expenses', path: 'expenditure' },
+  { label: 'Payments', path: 'payments', permission: 'VIEW_PAYMENTS' },
+  { label: 'Expenses', path: 'expenditure', permission: 'VIEW_EXPENSES' },
   { label: 'Project Progress', path: 'project-progress' },
   { label: 'Labour Details', path: 'labour-details' },
   { label: 'Work Planning', path: 'work-planning' },
@@ -42,6 +42,10 @@ const ProjectWorkspaceLayout = ({
     limitedSectionStatuses.has(projectStatus.trim().toLowerCase())
       ? projectSections.filter(({ path }) => path === 'documents' || path === 'payments')
       : projectSections
+  const visibleSections = sections.filter(
+    ({ permission }) =>
+      !permission || hasPermission(session?.user?.permissions, permission)
+  )
 
   return (
     <section
@@ -72,7 +76,7 @@ const ProjectWorkspaceLayout = ({
                 {isCompleted ? 'View Project' : 'Edit Project'}
               </Link>
             )}
-            {sections.map((section) => {
+            {visibleSections.map((section) => {
               const to = `${projectPath}/${section.path}`
               return (
                 <NavLink

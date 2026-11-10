@@ -1,5 +1,8 @@
 import { useParams } from 'react-router-dom'
-import { useGetProjectQuery } from '../../../redux/services/users/usersApi'
+import {
+  useGetCurrentSessionQuery,
+  useGetProjectQuery,
+} from '../../../redux/services/users/usersApi'
 import ProjectWorkspaceLayout, { ProjectBackLink } from './ProjectWorkspaceLayout'
 import DocumentsPage from './sections/documents/DocumentsPage'
 import ExpenditurePage from './sections/expenses/ExpenditurePage'
@@ -9,6 +12,8 @@ import PaymentsPage from './sections/payments/PaymentsPage'
 import ProjectProgressPage from './sections/progress/ProjectProgressPage'
 import ProjectSectionLayout from './sections/ProjectSectionLayout'
 import WorkPlanningPage from './sections/planning/WorkPlanningPage'
+import Unauthorized from '../../Unauthorized'
+import { hasPermission } from '../../../utils/permissions'
 
 const sectionPages = {
   documents: DocumentsPage,
@@ -20,6 +25,11 @@ const sectionPages = {
   'material-details': MaterialDetailsPage,
 }
 
+const sectionPermissions = {
+  payments: 'VIEW_PAYMENTS',
+  expenditure: 'VIEW_EXPENSES',
+}
+
 const formatSectionTitle = (section) =>
   section
     .split('-')
@@ -28,6 +38,7 @@ const formatSectionTitle = (section) =>
 
 const ProjectSectionPage = () => {
   const { projectId, section } = useParams()
+  const { data: session } = useGetCurrentSessionQuery()
   const { data, isLoading, isError } = useGetProjectQuery(projectId)
   const project = data?.project
 
@@ -64,6 +75,22 @@ const ProjectSectionPage = () => {
 
   const SectionPage = sectionPages[section]
   const sectionTitle = formatSectionTitle(section)
+  const requiredPermission = sectionPermissions[section]
+
+  if (
+    requiredPermission &&
+    !hasPermission(session?.user?.permissions, requiredPermission)
+  ) {
+    return (
+      <ProjectWorkspaceLayout
+        projectId={projectId}
+        projectStatus={project.status}
+        activePath={section}
+      >
+        <Unauthorized />
+      </ProjectWorkspaceLayout>
+    )
+  }
 
   return (
     <ProjectWorkspaceLayout
@@ -102,7 +129,18 @@ const ProjectSectionPage = () => {
           </dl>
         </section>
         {SectionPage ? (
-          <SectionPage projectId={projectId} />
+          <SectionPage
+            projectId={projectId}
+            project={project}
+            canAddPayment={hasPermission(
+              session?.user?.permissions,
+              'ADD_PAYMENT'
+            )}
+            canAddExpense={hasPermission(
+              session?.user?.permissions,
+              'ADD_EXPENSES'
+            )}
+          />
         ) : (
           <ProjectSectionLayout title={sectionTitle}>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">

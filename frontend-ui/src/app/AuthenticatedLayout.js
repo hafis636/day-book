@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import React, { useEffect, useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useGetCurrentSessionQuery, useLogoutMutation } from '../redux/services/users/usersApi'
 import LeftMenu, { LeftMenuToggle } from '../menus/LeftMenu'
 import TopMenu from '../menus/TopMenu'
@@ -7,6 +7,7 @@ import TopMenu from '../menus/TopMenu'
 const AuthenticatedLayout = ({ children }) => {
   const [leftMenuOpen, setLeftMenuOpen] = useState(false)
   const [logoutError, setLogoutError] = useState('')
+  const location = useLocation()
   const navigate = useNavigate()
   const { data } = useGetCurrentSessionQuery()
   const [logout, { isLoading }] = useLogoutMutation()
@@ -14,6 +15,12 @@ const AuthenticatedLayout = ({ children }) => {
   const displayName =
     [user.first_name, user.last_name].filter(Boolean).join(' ') ||
     user.Email
+
+  useEffect(() => {
+    if (/^\/manage-projects\/[^/]+(?:\/|$)/.test(location.pathname)) {
+      setLeftMenuOpen(false)
+    }
+  }, [location.pathname])
 
   const handleLogout = async () => {
     setLogoutError('')

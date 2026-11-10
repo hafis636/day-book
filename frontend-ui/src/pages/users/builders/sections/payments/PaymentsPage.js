@@ -3,7 +3,6 @@ import generatePaymentBill from './generatePaymentBill'
 import PaymentsPageView from './PaymentsPageView'
 import {
   useDeleteProjectPaymentMutation,
-  useGetProjectPaymentsQuery,
 } from '../../../../../redux/services/users/usersApi'
 
 const formatCurrency = (amount) =>
@@ -76,7 +75,7 @@ const formatPaymentMethod = (method) =>
         .join(' ')
     : '—'
 
-const PaymentsPage = ({ projectId }) => {
+const PaymentsPage = ({ project, projectId, canAddPayment = false }) => {
   const [isAddPaymentOpen, setIsAddPaymentOpen] = useState(false)
   const [paymentToEdit, setPaymentToEdit] = useState(null)
   const [paymentActionError, setPaymentActionError] = useState('')
@@ -87,17 +86,14 @@ const PaymentsPage = ({ projectId }) => {
     setPaymentToEdit(null)
   }, [])
   const openPaymentForm = useCallback((payment = null) => {
+    if (!payment && !canAddPayment) return
     setPaymentToEdit(payment)
     setIsAddPaymentOpen(true)
-  }, [])
-  const {
-    data: paymentsData,
-    isLoading: isLoadingPayments,
-    isError: isPaymentsError,
-  } = useGetProjectPaymentsQuery(projectId)
-  const payments = paymentsData?.payments || []
-  const isPaymentsDataAvailable =
-    !isLoadingPayments && !isPaymentsError && Array.isArray(paymentsData?.payments)
+  }, [canAddPayment])
+  const payments = Array.isArray(project?.payments) ? project.payments : []
+  const isPaymentsDataAvailable = Array.isArray(project?.payments)
+  const isLoadingPayments = false
+  const isPaymentsError = false
   const transactions = payments.map((payment) => ({
     id: payment.id,
     title: payment.title,
@@ -250,6 +246,7 @@ const PaymentsPage = ({ projectId }) => {
 
   return createElement(PaymentsPageView, {
     projectId,
+    canAddPayment,
     isAddPaymentOpen,
     paymentToEdit,
     paymentActionError,

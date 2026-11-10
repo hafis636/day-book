@@ -47,11 +47,52 @@ test('hides the project menu while the session permissions are unavailable', () 
 })
 
 test('labels the expenditure route as Expenses without changing its path', () => {
-  mockSession = { user: { permissions: { PROJECT_RIGHT_MENU: true } } }
+  mockSession = {
+    user: {
+      permissions: {
+        PROJECT_RIGHT_MENU: true,
+        VIEW_EXPENSES: true,
+      },
+    },
+  }
   renderWorkspace()
 
   expect(screen.getByRole('link', { name: 'Expenses' })).toHaveAttribute(
     'href',
     '/manage-projects/project-1/expenditure'
   )
+})
+
+test('shows payment and expense sections only with their view permissions', () => {
+  mockSession = {
+    user: {
+      permissions: {
+        PROJECT_RIGHT_MENU: true,
+        VIEW_PAYMENTS: true,
+      },
+    },
+  }
+  const { rerender } = renderWorkspace()
+
+  expect(screen.getByRole('link', { name: 'Payments' })).toBeInTheDocument()
+  expect(screen.queryByRole('link', { name: 'Expenses' })).not.toBeInTheDocument()
+
+  mockSession = {
+    user: {
+      permissions: {
+        PROJECT_RIGHT_MENU: true,
+        VIEW_EXPENSES: true,
+      },
+    },
+  }
+  rerender(
+    <MemoryRouter>
+      <ProjectWorkspaceLayout projectId="project-1">
+        <div>Project content</div>
+      </ProjectWorkspaceLayout>
+    </MemoryRouter>
+  )
+
+  expect(screen.queryByRole('link', { name: 'Payments' })).not.toBeInTheDocument()
+  expect(screen.getByRole('link', { name: 'Expenses' })).toBeInTheDocument()
 })

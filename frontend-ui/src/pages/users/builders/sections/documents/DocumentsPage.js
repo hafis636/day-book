@@ -7,13 +7,12 @@ import {
   useDeleteProjectDocumentMutation,
   useAddProjectDocumentReviewCommentMutation,
   useGetCurrentSessionQuery,
-  useGetProjectDocumentsQuery,
 } from '../../../../../redux/services/users/usersApi'
 import DocumentsPageView from './DocumentsPageView'
 import { API_BASE_URL } from '../../../../../config/api'
 import { hasPermission } from '../../../../../utils/permissions'
 
-const DocumentsPage = ({ projectId }) => {
+const DocumentsPage = ({ project, projectId }) => {
   const [isDocumentFormOpen, setIsDocumentFormOpen] = useState(false)
   const [editingDocument, setEditingDocument] = useState(null)
   const [previewDocument, setPreviewDocument] = useState(null)
@@ -25,10 +24,11 @@ const DocumentsPage = ({ projectId }) => {
   const [downloadError, setDownloadError] = useState('')
   const [downloadingDocumentId, setDownloadingDocumentId] = useState(null)
   const { data: session } = useGetCurrentSessionQuery()
-  const { data, isLoading, isError } = useGetProjectDocumentsQuery(projectId)
   const canAddDocument = hasPermission(session?.user?.permissions, 'ADD_DOCUMENT')
   const canReviewDocument = hasPermission(session?.user?.permissions, 'REVIEW_DOCUMENT')
-  const documents = data?.documents || []
+  const documents = Array.isArray(project?.documents) ? project.documents : []
+  const isLoading = false
+  const isError = false
   const [deleteProjectDocument, { isLoading: isDeletingDocument }] =
     useDeleteProjectDocumentMutation()
   const [addReviewComment, { isLoading: isSavingReviewComment }] =

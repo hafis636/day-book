@@ -1,4 +1,6 @@
 const { pool } = require('../config/db');
+const paymentsService = require('./paymentsService');
+const projectEventsService = require('./projectEventsService');
 const {
   deleteProjectImage,
   deleteProjectImageByUrl,
@@ -161,6 +163,12 @@ const getProjectForUser = async (userId, projectId) => {
      ORDER BY display_order ASC, created_at ASC`,
     [projectId]
   );
+  const [transactions, documents, events] = await Promise.all([
+    paymentsService.getProjectPaymentsForUser(userId, projectId),
+    getProjectDocumentsForUser(userId, projectId),
+    projectEventsService.getProjectEventsForUser(userId, projectId),
+  ]);
+  if (!transactions || !events) return null;
 
   return {
     ...project,
@@ -177,6 +185,10 @@ const getProjectForUser = async (userId, projectId) => {
       ...image,
       image_url: toPublicImageUrl(image.image_url),
     })),
+    payments: transactions.filter((transaction) => transaction.type !== 'expense'),
+    expenses: transactions.filter((transaction) => transaction.type === 'expense'),
+    documents,
+    events,
   };
 };
 
@@ -189,7 +201,7 @@ const getProjectDocumentsForUser = async (userId, projectId) => {
      FROM "daybook-dev-db".project_documents AS d
      INNER JOIN "daybook-dev-db".projects AS p ON p.id = d.project_id
      WHERE p.engineer_id = $1 AND d.project_id = $2
-       AND d.is_active = TRUE AND d.file_type NOT IN ('image', 'images')
+       AND d.is_active = TRUE AND d.file_type NOT IN ('image', 'images', 'event_file')
      ORDER BY d.created_at DESC, d.display_order ASC`,
     [userId, projectId]
   );
