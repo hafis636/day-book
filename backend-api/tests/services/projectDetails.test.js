@@ -5,17 +5,25 @@ process.env.DATABASE_URL ||= 'postgresql://localhost:5432/test';
 
 const { pool } = require('../../src/config/db');
 const projectsService = require('../../src/services/projectsService');
+const labourWorkersService = require('../../src/services/labourWorkersService');
 
-test('project detail includes payments, expenses, documents, and events', async (t) => {
+test('project detail includes payments, expenses, documents, events, and labour assignments', async (t) => {
   const originalQuery = pool.query;
+  const originalGetAssignments =
+    labourWorkersService.getProjectLabourAssignmentsForUser;
   const transactions = [
     { id: 'payment-1', type: 'income' },
     { id: 'expense-1', type: 'expense' },
   ];
   const documents = [{ id: 'document-1', title: 'Project plan' }];
   const events = [{ id: 'event-1', title: 'Foundation complete', files: [] }];
+  const labourAssignments = [{ id: 'assignment-1', labour_name: 'Nita Rao' }];
   let documentQuery;
 
+  labourWorkersService.getProjectLabourAssignmentsForUser = async (...args) => {
+    assert.deepEqual(args, ['engineer-1', 'project-1']);
+    return labourAssignments;
+  };
   pool.query = async (sql) => {
     if (sql.includes('FROM "daybook-dev-db".projects AS p')) {
       return {
@@ -46,6 +54,8 @@ test('project detail includes payments, expenses, documents, and events', async 
   };
   t.after(() => {
     pool.query = originalQuery;
+    labourWorkersService.getProjectLabourAssignmentsForUser =
+      originalGetAssignments;
   });
 
   const project = await projectsService.getProjectForUser('engineer-1', 'project-1');
@@ -54,5 +64,6 @@ test('project detail includes payments, expenses, documents, and events', async 
   assert.deepEqual(project.expenses, [transactions[1]]);
   assert.deepEqual(project.documents, documents);
   assert.deepEqual(project.events, events);
+  assert.deepEqual(project.labour_assignments, labourAssignments);
   assert.match(documentQuery, /d\.file_type NOT IN \('image', 'images', 'event_file'\)/);
 });

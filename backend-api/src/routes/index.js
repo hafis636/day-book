@@ -50,6 +50,11 @@ const {
   createProjectEvent,
   getProjectEvents,
 } = require('../controllers/projectEventsController');
+const {
+  createProjectLabourAssignment,
+  getProjectLabourAssignments,
+  searchLabourWorkers,
+} = require('../controllers/labourWorkersController');
 
 const router = express.Router();
 
@@ -103,6 +108,21 @@ router.post(
   createProject
 );
 router.get('/projects', requireAuthenticatedSession, getProjects);
+router.get(
+  '/labour-workers/search',
+  requireAuthenticatedSession,
+  searchLabourWorkers
+);
+router.get(
+  '/projects/:id/labour-assignments',
+  requireAuthenticatedSession,
+  getProjectLabourAssignments
+);
+router.post(
+  '/projects/:id/labour-assignments',
+  requireAuthenticatedSession,
+  createProjectLabourAssignment
+);
 router.get('/projects/:id/payments', requireAuthenticatedSession, getProjectPayments);
 router.post('/projects/:id/payments', requireAuthenticatedSession, createProjectPayment);
 router.get('/projects/:id/events', requireAuthenticatedSession, getProjectEvents);

@@ -11,7 +11,6 @@ import MaterialDetailsPage from './sections/purchases/MaterialDetailsPage'
 import PaymentsPage from './sections/payments/PaymentsPage'
 import ProjectProgressPage from './sections/progress/ProjectProgressPage'
 import ProjectSectionLayout from './sections/ProjectSectionLayout'
-import WorkPlanningPage from './sections/planning/WorkPlanningPage'
 import Unauthorized from '../../Unauthorized'
 import { hasPermission } from '../../../utils/permissions'
 
@@ -21,7 +20,6 @@ const sectionPages = {
   expenditure: ExpenditurePage,
   'project-progress': ProjectProgressPage,
   'labour-details': LabourDetailsPage,
-  'work-planning': WorkPlanningPage,
   'material-details': MaterialDetailsPage,
 }
 

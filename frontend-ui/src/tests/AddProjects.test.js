@@ -117,6 +117,26 @@ test('submits valid project data to the API and reports success', async () => {
   expect(await screen.findByRole('status')).toHaveTextContent('Project created successfully.')
 })
 
+test('shows project validation errors and clears the field border after correction', () => {
+  render(<AddProjectForm />)
+  fireEvent.submit(screen.getByRole('button', { name: 'Create Project' }).closest('form'))
+
+  const projectName = screen.getByLabelText(/^Project Name/)
+  expect(projectName).toHaveAttribute('aria-invalid', 'true')
+  expect(projectName).toHaveClass('aria-invalid:border-red-500')
+  expect(screen.getByLabelText(/^Project Type/)).toHaveAttribute('aria-invalid', 'true')
+  expect(screen.getByText('Enter a project name.')).toHaveAttribute('role', 'alert')
+  expect(
+    screen.getByText(
+      'There are items that require your attention!!'
+    )
+  ).toHaveAttribute('role', 'alert')
+  expect(mockCreateProject).not.toHaveBeenCalled()
+
+  fireEvent.change(projectName, { target: { value: 'Riverside Apartment' } })
+  expect(projectName).toHaveAttribute('aria-invalid', 'false')
+})
+
 test('sends the selected images and project fields as multipart form data', async () => {
   render(<AddProjectForm />)
   const coverImage = new File(['cover'], 'cover.png', { type: 'image/png' })

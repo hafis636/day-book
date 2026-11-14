@@ -4,6 +4,8 @@ import {
   useCreateProjectPaymentMutation,
   useUpdateProjectPaymentMutation,
 } from '../../../../redux/services/users/usersApi'
+import { validatePayment } from './validations/paymentValidation'
+import ValidationSummary from './ValidationSummary'
 
 const paymentMethods = [
   ['cash', 'Cash'],
@@ -23,7 +25,7 @@ const paymentStatuses = [
 ]
 
 const inputClasses =
-  'mt-2 block w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20'
+  'mt-2 block w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 aria-invalid:border-red-500 aria-invalid:focus:border-red-600 aria-invalid:focus:ring-red-600/20'
 
 const FieldLabel = ({ htmlFor, children, required = false }) => (
   <label htmlFor={htmlFor} className="block text-sm font-semibold text-slate-700">
@@ -40,6 +42,7 @@ const AddPaymentForm = ({
   projectId,
   payment,
   transactionType = 'income',
+  validateTransaction = validatePayment,
   onClose,
 }) => {
   const isExpense = (payment?.type || transactionType) === 'expense'
@@ -47,6 +50,7 @@ const AddPaymentForm = ({
   const sectionLabel = isExpense ? 'expenses' : 'payments'
   const titleRef = useRef(null)
   const [submissionError, setSubmissionError] = useState('')
+  const [validationErrors, setValidationErrors] = useState({})
   const [status, setStatus] = useState(payment?.status || 'advance')
   const [paymentMethod, setPaymentMethod] = useState(payment?.payment_method || '')
   const [createProjectPayment, { isLoading: isCreating }] =
@@ -62,18 +66,13 @@ const AddPaymentForm = ({
     event.preventDefault()
     const form = event.currentTarget
     if (isSavingRef.current) return
-    const partyNameInput = form.elements.namedItem('party_name')
-    partyNameInput.setCustomValidity(
-      partyNameInput.value.trim() ? '' : 'Party name is required'
-    )
-    if (!form.checkValidity()) {
-      form.reportValidity()
-      return
-    }
-
     setSubmissionError('')
     const values = new FormData(form)
     const paymentDetails = Object.fromEntries(values.entries())
+    const errors = validateTransaction(paymentDetails)
+    setValidationErrors(errors)
+    if (Object.keys(errors).length) return
+
     paymentDetails.type = payment?.type || transactionType
     const submittedIsPendingOrOverdue = ['pending', 'overdue'].includes(paymentDetails.status)
     paymentDetails.title = paymentDetails.title.trim()
@@ -105,6 +104,33 @@ const AddPaymentForm = ({
         error?.data?.error || `Unable to ${payment?.id ? 'update' : 'save'} the ${transactionLabel}. Please try again.`
       )
     }
+  }
+
+  const clearFieldError = (fieldName) => {
+    setValidationErrors((errors) => {
+      if (!errors[fieldName]) return errors
+      const nextErrors = { ...errors }
+      delete nextErrors[fieldName]
+      return nextErrors
+    })
+  }
+
+  const handleStatusChange = (event) => {
+    const nextStatus = event.target.value
+    setStatus(nextStatus)
+    setValidationErrors((errors) => {
+      const nextErrors = { ...errors }
+      delete nextErrors.status
+      if (['pending', 'overdue'].includes(nextStatus)) {
+        delete nextErrors.payment_method
+      }
+      return nextErrors
+    })
+  }
+
+  const handlePaymentMethodChange = (event) => {
+    setPaymentMethod(event.target.value)
+    clearFieldError('payment_method')
   }
 
   return (
@@ -147,7 +173,11 @@ const AddPaymentForm = ({
           </button>
         </header>
 
-        <form onSubmit={submitPayment} className="overflow-y-auto px-5 py-5 sm:px-7">
+        <form
+          noValidate
+          onSubmit={submitPayment}
+          className="overflow-y-auto px-5 py-5 sm:px-7"
+        >
           <div className="grid gap-5 sm:grid-cols-2">
             <div className="sm:col-span-2">
               <FieldLabel htmlFor="payment-title" required>Title</FieldLabel>
@@ -160,7 +190,15 @@ const AddPaymentForm = ({
                 placeholder="e.g. Electrical work milestone"
                 defaultValue={payment?.title || ''}
                 required
+                aria-invalid={Boolean(validationErrors.title)}
+                aria-describedby={validationErrors.title ? 'payment-title-error' : undefined}
+                onChange={() => clearFieldError('title')}
               />
+              {validationErrors.title && (
+                <p className="mt-2 text-sm text-red-700" id="payment-title-error" role="alert">
+                  {validationErrors.title}
+                </p>
+              )}
             </div>
             <div>
               <FieldLabel htmlFor="payment-amount" required>Amount (INR)</FieldLabel>
@@ -174,7 +212,17 @@ const AddPaymentForm = ({
                 required
                 step="0.01"
                 type="number"
+                aria-invalid={Boolean(validationErrors.amount)}
+                aria-describedby={
+                  validationErrors.amount ? 'payment-amount-error' : undefined
+                }
+                onChange={() => clearFieldError('amount')}
               />
+              {validationErrors.amount && (
+                <p className="mt-2 text-sm text-red-700" id="payment-amount-error" role="alert">
+                  {validationErrors.amount}
+                </p>
+              )}
             </div>
             <div>
               <FieldLabel htmlFor="payment-status" required>Status</FieldLabel>
@@ -182,14 +230,23 @@ const AddPaymentForm = ({
                 className={inputClasses}
                 id="payment-status"
                 name="status"
-                onChange={(event) => setStatus(event.target.value)}
+                onChange={handleStatusChange}
                 required
                 value={status}
+                aria-invalid={Boolean(validationErrors.status)}
+                aria-describedby={
+                  validationErrors.status ? 'payment-status-error' : undefined
+                }
               >
                 {paymentStatuses.map(([value, label]) => (
                   <option key={value} value={value}>{label}</option>
                 ))}
               </select>
+              {validationErrors.status && (
+                <p className="mt-2 text-sm text-red-700" id="payment-status-error" role="alert">
+                  {validationErrors.status}
+                </p>
+              )}
             </div>
             <div>
               <FieldLabel htmlFor="payment-date">
@@ -201,7 +258,17 @@ const AddPaymentForm = ({
                 id="payment-date"
                 name="transaction_date"
                 type="date"
+                aria-invalid={Boolean(validationErrors.transaction_date)}
+                aria-describedby={
+                  validationErrors.transaction_date ? 'payment-date-error' : undefined
+                }
+                onChange={() => clearFieldError('transaction_date')}
               />
+              {validationErrors.transaction_date && (
+                <p className="mt-2 text-sm text-red-700" id="payment-date-error" role="alert">
+                  {validationErrors.transaction_date}
+                </p>
+              )}
             </div>
             {!isPendingOrOverdue && (
               <>
@@ -209,17 +276,32 @@ const AddPaymentForm = ({
                   <FieldLabel htmlFor="payment-method" required>Payment method</FieldLabel>
                   <select
                     className={inputClasses}
-                    onChange={(event) => setPaymentMethod(event.target.value)}
+                    onChange={handlePaymentMethodChange}
                     value={paymentMethod}
                     id="payment-method"
                     name="payment_method"
                     required
+                    aria-invalid={Boolean(validationErrors.payment_method)}
+                    aria-describedby={
+                      validationErrors.payment_method
+                        ? 'payment-method-error'
+                        : undefined
+                    }
                   >
                     <option disabled value="">Select a method</option>
                     {paymentMethods.map(([value, label]) => (
                       <option key={value} value={value}>{label}</option>
                     ))}
                   </select>
+                  {validationErrors.payment_method && (
+                    <p
+                      className="mt-2 text-sm text-red-700"
+                      id="payment-method-error"
+                      role="alert"
+                    >
+                      {validationErrors.payment_method}
+                    </p>
+                  )}
                 </div>
               </>
             )}
@@ -232,7 +314,17 @@ const AddPaymentForm = ({
                 name="category"
                 placeholder="e.g. Materials"
                 defaultValue={payment?.category || ''}
+                aria-invalid={Boolean(validationErrors.category)}
+                aria-describedby={
+                  validationErrors.category ? 'payment-category-error' : undefined
+                }
+                onChange={() => clearFieldError('category')}
               />
+              {validationErrors.category && (
+                <p className="mt-2 text-sm text-red-700" id="payment-category-error" role="alert">
+                  {validationErrors.category}
+                </p>
+              )}
             </div>
             <div>
               <FieldLabel htmlFor="payment-party-name" required>Party name</FieldLabel>
@@ -244,7 +336,21 @@ const AddPaymentForm = ({
                 placeholder="Person or company"
                 defaultValue={payment?.party_name || ''}
                 required
+                aria-invalid={Boolean(validationErrors.party_name)}
+                aria-describedby={
+                  validationErrors.party_name ? 'payment-party-name-error' : undefined
+                }
+                onChange={() => clearFieldError('party_name')}
               />
+              {validationErrors.party_name && (
+                <p
+                  className="mt-2 text-sm text-red-700"
+                  id="payment-party-name-error"
+                  role="alert"
+                >
+                  {validationErrors.party_name}
+                </p>
+              )}
             </div>
             {!isPendingOrOverdue && (
               <div className="sm:col-span-2">
@@ -256,7 +362,23 @@ const AddPaymentForm = ({
                   name="reference_number"
                   placeholder="Optional transaction or cheque reference"
                   defaultValue={payment?.reference_number || ''}
+                  aria-invalid={Boolean(validationErrors.reference_number)}
+                  aria-describedby={
+                    validationErrors.reference_number
+                      ? 'payment-reference-error'
+                      : undefined
+                  }
+                  onChange={() => clearFieldError('reference_number')}
                 />
+                {validationErrors.reference_number && (
+                  <p
+                    className="mt-2 text-sm text-red-700"
+                    id="payment-reference-error"
+                    role="alert"
+                  >
+                    {validationErrors.reference_number}
+                  </p>
+                )}
               </div>
             )}
             <div className="sm:col-span-2">
@@ -268,7 +390,21 @@ const AddPaymentForm = ({
                 name="description"
                 rows="3"
                 defaultValue={payment?.description || ''}
+                aria-invalid={Boolean(validationErrors.description)}
+                aria-describedby={
+                  validationErrors.description ? 'payment-description-error' : undefined
+                }
+                onChange={() => clearFieldError('description')}
               />
+              {validationErrors.description && (
+                <p
+                  className="mt-2 text-sm text-red-700"
+                  id="payment-description-error"
+                  role="alert"
+                >
+                  {validationErrors.description}
+                </p>
+              )}
             </div>
           </div>
 
@@ -278,28 +414,31 @@ const AddPaymentForm = ({
             </p>
           )}
 
-          <footer className="mt-6 flex flex-col-reverse gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:justify-end">
-            <button
-              className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={isLoading}
-              onClick={onClose}
-              type="button"
-            >
-              Cancel
-            </button>
-            <button
-              className="inline-flex min-h-10 items-center justify-center rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60"
-              disabled={isLoading}
-              type="submit"
-            >
-              {isLoading
-                ? payment?.id
-                  ? 'Updating…'
-                  : 'Saving…'
-                : payment?.id
-                  ? `Update ${transactionLabel}`
-                  : `Save ${transactionLabel}`}
-            </button>
+          <footer className="mt-6 flex flex-col-reverse gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:items-center sm:justify-between">
+            <ValidationSummary show={Object.keys(validationErrors).length > 0} />
+            <div className="flex justify-end gap-3">
+              <button
+                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={isLoading}
+                onClick={onClose}
+                type="button"
+              >
+                Cancel
+              </button>
+              <button
+                className="inline-flex min-h-10 items-center justify-center rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60"
+                disabled={isLoading}
+                type="submit"
+              >
+                {isLoading
+                  ? payment?.id
+                    ? 'Updating…'
+                    : 'Saving…'
+                  : payment?.id
+                    ? `Update ${transactionLabel}`
+                    : `Save ${transactionLabel}`}
+              </button>
+            </div>
           </footer>
         </form>
     </Modal>

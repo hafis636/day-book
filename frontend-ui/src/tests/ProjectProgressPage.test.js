@@ -396,6 +396,30 @@ test('adds an event to the project calendar from the event form', async () => {
   ).toBeInTheDocument()
 })
 
+test('shows project event errors and clears the field border after correction', () => {
+  renderProgress(project)
+  fireEvent.click(screen.getByRole('button', { name: 'Add Events' }))
+  const form = screen.getByRole('button', { name: 'Add event' }).closest('form')
+
+  fireEvent.submit(form)
+
+  const titleField = screen.getByLabelText(/Title/)
+  expect(titleField).toHaveAttribute('aria-invalid', 'true')
+  expect(titleField).toHaveClass('aria-invalid:border-red-500')
+  expect(screen.getByLabelText(/Type/)).toHaveAttribute('aria-invalid', 'true')
+  expect(screen.getByLabelText(/Project phase/)).toHaveAttribute('aria-invalid', 'true')
+  expect(screen.getByText('Enter an event title.')).toHaveAttribute('role', 'alert')
+  expect(
+    screen.getByText(
+      'There are items that require your attention!!'
+    )
+  ).toHaveAttribute('role', 'alert')
+  expect(mockCreateProjectEvent).not.toHaveBeenCalled()
+
+  fireEvent.change(titleField, { target: { value: 'Foundation inspection' } })
+  expect(titleField).toHaveAttribute('aria-invalid', 'false')
+})
+
 test('double-clicking an active calendar day opens the event form for that date', () => {
   renderProgress(project)
 

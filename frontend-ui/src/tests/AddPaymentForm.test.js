@@ -126,6 +126,39 @@ test('shows API validation errors and keeps the payment form open', async () => 
   expect(screen.getByRole('dialog', { name: 'Add a payment' })).toBeInTheDocument()
 })
 
+test('shows payment validation errors and blocks an invalid submission', async () => {
+  render(
+    <MemoryRouter>
+      <PaymentsPage projectId="project-1" canAddPayment />
+    </MemoryRouter>
+  )
+
+  await userEvent.click(screen.getByRole('button', { name: 'Add Payment' }))
+  const dialog = screen.getByRole('dialog', { name: 'Add a payment' })
+  await userEvent.click(within(dialog).getByRole('button', { name: 'Save payment' }))
+
+  const titleField = within(dialog).getByLabelText(/Title/)
+  expect(titleField).toHaveAttribute('aria-invalid', 'true')
+  expect(titleField).toHaveClass('aria-invalid:border-red-500')
+  expect(within(dialog).getByLabelText(/Amount \(INR\)/)).toHaveAttribute(
+    'aria-invalid',
+    'true'
+  )
+  expect(within(dialog).getByLabelText(/Party name/)).toHaveAttribute(
+    'aria-invalid',
+    'true'
+  )
+  expect(
+    within(dialog).getByText(
+      'There are items that require your attention!!'
+    )
+  ).toHaveAttribute('role', 'alert')
+  expect(mockCreateProjectPayment).not.toHaveBeenCalled()
+
+  await userEvent.type(titleField, 'Materials')
+  expect(titleField).toHaveAttribute('aria-invalid', 'false')
+})
+
 test.each(['pending', 'overdue'])(
   'uses a due date and hides payment method and reference for %s payments',
   async (status) => {

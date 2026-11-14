@@ -348,6 +348,7 @@ test('provides the specified document category, review status, and visibility op
 
 test('requires at least one file before uploading', async () => {
   render(<AddDocumentForm projectId="project-1" onClose={jest.fn()} />)
+  const filesInput = screen.getByLabelText('Files')
 
   fireEvent.change(screen.getByLabelText(/^Document title/), {
     target: { value: 'Structural drawings' },
@@ -358,10 +359,23 @@ test('requires at least one file before uploading', async () => {
   )
   await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
-  expect(await screen.findByRole('alert')).toHaveTextContent(
-    'Select at least one file to upload.'
+  expect(await screen.findByText('Select at least one file to upload.')).toHaveAttribute(
+    'role',
+    'alert'
   )
+  expect(
+    screen.getByText(
+      'There are items that require your attention!!'
+    )
+  ).toHaveAttribute('role', 'alert')
   expect(mockUploadProjectDocuments).not.toHaveBeenCalled()
+
+  expect(filesInput).toHaveClass('aria-invalid:border-red-500')
+  await userEvent.upload(
+    filesInput,
+    new File(['drawing'], 'drawing.pdf', { type: 'application/pdf' })
+  )
+  expect(filesInput).toHaveAttribute('aria-invalid', 'false')
 })
 
 test('keeps the form open and displays the API error when upload fails', async () => {

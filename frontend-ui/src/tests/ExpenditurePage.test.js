@@ -81,6 +81,30 @@ test('adds an expense through the project transaction API with type expense', as
   expect(screen.queryByRole('dialog', { name: 'Add an expense' })).not.toBeInTheDocument()
 })
 
+test('shows expense validation errors and blocks an invalid submission', async () => {
+  renderPage()
+
+  await userEvent.click(screen.getByRole('button', { name: 'Add Expense' }))
+  const dialog = screen.getByRole('dialog', { name: 'Add an expense' })
+  await userEvent.click(within(dialog).getByRole('button', { name: 'Save expense' }))
+
+  expect(within(dialog).getByLabelText(/Title/)).toHaveAttribute('aria-invalid', 'true')
+  expect(within(dialog).getByLabelText(/Amount \(INR\)/)).toHaveAttribute(
+    'aria-invalid',
+    'true'
+  )
+  expect(within(dialog).getByLabelText(/Party name/)).toHaveAttribute(
+    'aria-invalid',
+    'true'
+  )
+  expect(
+    within(dialog).getByText(
+      'There are items that require your attention!!'
+    )
+  ).toHaveAttribute('role', 'alert')
+  expect(mockCreateProjectPayment).not.toHaveBeenCalled()
+})
+
 test('builds the expenses dashboard from expense records in project details', () => {
   const now = new Date()
   const currentMonthDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-10`

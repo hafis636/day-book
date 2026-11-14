@@ -6,9 +6,11 @@ import {
   PROJECT_EVENT_TYPES,
   PROJECT_PHASES,
 } from '../constants'
+import { validateProjectEvent } from './validations/projectEventValidation'
+import ValidationSummary from './ValidationSummary'
 
 const inputClasses =
-  'mt-2 block w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20'
+  'mt-2 block w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 aria-invalid:border-red-500 aria-invalid:focus:border-red-600 aria-invalid:focus:ring-red-600/20'
 
 const formatOptionLabel = (value) =>
   value
@@ -38,6 +40,7 @@ const AddProjectEventForm = ({
   const titleRef = useRef(null)
   const [files, setFiles] = useState([])
   const [submissionError, setSubmissionError] = useState('')
+  const [validationErrors, setValidationErrors] = useState({})
 
   const addFiles = (event) => {
     const selectedFiles = Array.from(event.currentTarget.files || [])
@@ -63,18 +66,15 @@ const AddProjectEventForm = ({
     event.preventDefault()
     const form = event.currentTarget
     if (isSubmitting) return
-    if (!form.checkValidity()) {
-      form.reportValidity()
-      return
-    }
-
     const formData = new FormData(form)
     const startDate = formData.get('startDate')
     const endDate = formData.get('endDate')
-    if (endDate < startDate) {
-      setSubmissionError('End date must be on or after the start date.')
-      return
-    }
+    const errors = validateProjectEvent(
+      Object.fromEntries(formData.entries()),
+      { minDate, maxDate }
+    )
+    setValidationErrors(errors)
+    if (Object.keys(errors).length) return
 
     setSubmissionError('')
     setIsSubmitting(true)
@@ -99,6 +99,15 @@ const AddProjectEventForm = ({
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  const clearFieldError = (fieldName) => {
+    setValidationErrors((errors) => {
+      if (!errors[fieldName]) return errors
+      const nextErrors = { ...errors }
+      delete nextErrors[fieldName]
+      return nextErrors
+    })
   }
 
   return (
@@ -139,7 +148,11 @@ const AddProjectEventForm = ({
         </button>
       </header>
 
-      <form className="min-h-0 space-y-5 overflow-y-auto px-5 py-5 sm:px-7" onSubmit={submitEvent}>
+      <form
+        className="min-h-0 space-y-5 overflow-y-auto px-5 py-5 sm:px-7"
+        noValidate
+        onSubmit={submitEvent}
+      >
         {submissionError && (
           <p
             className="rounded-lg border border-red-200 bg-red-50 px-3.5 py-3 text-sm text-red-800"
@@ -161,7 +174,19 @@ const AddProjectEventForm = ({
               type="text"
               autoComplete="off"
               required
+              aria-invalid={Boolean(validationErrors.title)}
+              aria-describedby={validationErrors.title ? 'project-event-title-error' : undefined}
+              onChange={() => clearFieldError('title')}
             />
+            {validationErrors.title && (
+              <p
+                className="mt-2 text-sm text-red-700"
+                id="project-event-title-error"
+                role="alert"
+              >
+                {validationErrors.title}
+              </p>
+            )}
           </div>
           <div className="sm:col-span-2">
             <FieldLabel htmlFor="project-event-description">Description</FieldLabel>
@@ -176,7 +201,16 @@ const AddProjectEventForm = ({
             <FieldLabel htmlFor="project-event-type" required>
               Type
             </FieldLabel>
-            <select className={inputClasses} id="project-event-type" name="type" required defaultValue="">
+            <select
+              className={inputClasses}
+              id="project-event-type"
+              name="type"
+              required
+              defaultValue=""
+              aria-invalid={Boolean(validationErrors.type)}
+              aria-describedby={validationErrors.type ? 'project-event-type-error' : undefined}
+              onChange={() => clearFieldError('type')}
+            >
               <option value="" disabled>
                 Select a type
               </option>
@@ -186,12 +220,28 @@ const AddProjectEventForm = ({
                 </option>
               ))}
             </select>
+            {validationErrors.type && (
+              <p className="mt-2 text-sm text-red-700" id="project-event-type-error" role="alert">
+                {validationErrors.type}
+              </p>
+            )}
           </div>
           <div>
             <FieldLabel htmlFor="project-event-phase" required>
               Project phase
             </FieldLabel>
-            <select className={inputClasses} id="project-event-phase" name="phase" required defaultValue="">
+            <select
+              className={inputClasses}
+              id="project-event-phase"
+              name="phase"
+              required
+              defaultValue=""
+              aria-invalid={Boolean(validationErrors.phase)}
+              aria-describedby={
+                validationErrors.phase ? 'project-event-phase-error' : undefined
+              }
+              onChange={() => clearFieldError('phase')}
+            >
               <option value="" disabled>
                 Select a phase
               </option>
@@ -201,6 +251,15 @@ const AddProjectEventForm = ({
                 </option>
               ))}
             </select>
+            {validationErrors.phase && (
+              <p
+                className="mt-2 text-sm text-red-700"
+                id="project-event-phase-error"
+                role="alert"
+              >
+                {validationErrors.phase}
+              </p>
+            )}
           </div>
           <div>
             <FieldLabel htmlFor="project-event-start-date" required>
@@ -215,7 +274,21 @@ const AddProjectEventForm = ({
               min={minDate}
               max={maxDate}
               required
+              aria-invalid={Boolean(validationErrors.startDate)}
+              aria-describedby={
+                validationErrors.startDate ? 'project-event-start-date-error' : undefined
+              }
+              onChange={() => clearFieldError('startDate')}
             />
+            {validationErrors.startDate && (
+              <p
+                className="mt-2 text-sm text-red-700"
+                id="project-event-start-date-error"
+                role="alert"
+              >
+                {validationErrors.startDate}
+              </p>
+            )}
           </div>
           <div>
             <FieldLabel htmlFor="project-event-end-date" required>
@@ -230,13 +303,38 @@ const AddProjectEventForm = ({
               min={minDate}
               max={maxDate}
               required
+              aria-invalid={Boolean(validationErrors.endDate)}
+              aria-describedby={
+                validationErrors.endDate ? 'project-event-end-date-error' : undefined
+              }
+              onChange={() => clearFieldError('endDate')}
             />
+            {validationErrors.endDate && (
+              <p
+                className="mt-2 text-sm text-red-700"
+                id="project-event-end-date-error"
+                role="alert"
+              >
+                {validationErrors.endDate}
+              </p>
+            )}
           </div>
           <div>
             <FieldLabel htmlFor="project-event-status" required>
               Status
             </FieldLabel>
-            <select className={inputClasses} id="project-event-status" name="status" required defaultValue="">
+            <select
+              className={inputClasses}
+              id="project-event-status"
+              name="status"
+              required
+              defaultValue=""
+              aria-invalid={Boolean(validationErrors.status)}
+              aria-describedby={
+                validationErrors.status ? 'project-event-status-error' : undefined
+              }
+              onChange={() => clearFieldError('status')}
+            >
               <option value="" disabled>
                 Select a status
               </option>
@@ -246,6 +344,15 @@ const AddProjectEventForm = ({
                 </option>
               ))}
             </select>
+            {validationErrors.status && (
+              <p
+                className="mt-2 text-sm text-red-700"
+                id="project-event-status-error"
+                role="alert"
+              >
+                {validationErrors.status}
+              </p>
+            )}
           </div>
           <div>
             <FieldLabel htmlFor="project-event-priority">Priority</FieldLabel>
@@ -307,21 +414,24 @@ const AddProjectEventForm = ({
           </div>
         </div>
 
-        <footer className="flex justify-end gap-3 border-t border-slate-100 pt-4">
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="inline-flex min-h-10 items-center justify-center rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
-          >
-            {isSubmitting ? 'Saving…' : 'Add event'}
-          </button>
+        <footer className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <ValidationSummary show={Object.keys(validationErrors).length > 0} />
+          <div className="flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="inline-flex min-h-10 items-center justify-center rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+            >
+              {isSubmitting ? 'Saving…' : 'Add event'}
+            </button>
+          </div>
         </footer>
       </form>
     </Modal>

@@ -1,5 +1,5 @@
 import ProjectSectionLayout from '../ProjectSectionLayout'
-import AddPaymentForm from '../../forms/AddPaymentForm'
+import AddExpenseForm from '../../forms/AddExpenseForm'
 import DataTable from '../../../../../components/common/DataTable'
 
 const statusStyles = {
@@ -470,9 +470,8 @@ const ExpenditurePageView = ({
         </section>
       </div>
       {canAddExpense && isAddExpenseOpen && (
-        <AddPaymentForm
+        <AddExpenseForm
           projectId={projectId}
-          transactionType="expense"
           onClose={onCloseExpenseForm}
         />
       )}

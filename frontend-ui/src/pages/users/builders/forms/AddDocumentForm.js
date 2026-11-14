@@ -9,9 +9,11 @@ import {
   useUpdateProjectDocumentMutation,
   useUploadProjectDocumentsMutation,
 } from '../../../../redux/services/users/usersApi'
+import { validateDocument } from './validations/documentValidation'
+import ValidationSummary from './ValidationSummary'
 
 const inputClasses =
-  'mt-2 block w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20'
+  'mt-2 block w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 aria-invalid:border-red-500 aria-invalid:focus:border-red-600 aria-invalid:focus:ring-red-600/20'
 
 const normalizeOptionValue = (value) => value?.replace(/_/g, ' ').toLowerCase()
 const lockedReviewStatuses = new Set(['approved', 'rejected', 'archived'])
@@ -41,6 +43,7 @@ const AddDocumentForm = ({ projectId, document, onClose }) => {
   const isReviewStatusLocked = lockedReviewStatuses.has(currentReviewStatus)
   const [files, setFiles] = useState([])
   const [submissionError, setSubmissionError] = useState('')
+  const [validationErrors, setValidationErrors] = useState({})
   const titleRef = useRef(null)
   const [uploadProjectDocuments, { isLoading }] = useUploadProjectDocumentsMutation()
   const [updateProjectDocument, { isLoading: isUpdating }] =
@@ -54,16 +57,15 @@ const AddDocumentForm = ({ projectId, document, onClose }) => {
     if (isSavingRef.current) return
     const form = event.currentTarget
     setSubmissionError('')
-    if (!form.checkValidity()) {
-      form.reportValidity()
-      return
-    }
-    if (!isEditing && !files.length) {
-      setSubmissionError('Select at least one file to upload.')
-      return
-    }
-
     const formData = new FormData(form)
+    const errors = validateDocument(
+      Object.fromEntries(formData.entries()),
+      files,
+      isEditing
+    )
+    setValidationErrors(errors)
+    if (Object.keys(errors).length) return
+
     formData.delete('files')
     const reviewStatus = formData.get('reviewStatus')
     if (typeof reviewStatus === 'string') {
@@ -91,6 +93,12 @@ const AddDocumentForm = ({ projectId, document, onClose }) => {
 
   const addFiles = (event) => {
     const selectedFiles = Array.from(event.currentTarget.files || [])
+    setValidationErrors((errors) => {
+      if (!errors.files) return errors
+      const nextErrors = { ...errors }
+      delete nextErrors.files
+      return nextErrors
+    })
     if (isEditing) {
       setFiles(selectedFiles.slice(0, 1))
       event.currentTarget.value = ''
@@ -111,6 +119,15 @@ const AddDocumentForm = ({ projectId, document, onClose }) => {
       return nextFiles
     })
     event.currentTarget.value = ''
+  }
+
+  const clearFieldError = (fieldName) => {
+    setValidationErrors((errors) => {
+      if (!errors[fieldName]) return errors
+      const nextErrors = { ...errors }
+      delete nextErrors[fieldName]
+      return nextErrors
+    })
   }
 
   return (
@@ -155,6 +172,7 @@ const AddDocumentForm = ({ projectId, document, onClose }) => {
 
         <form
           className="min-h-0 space-y-5 overflow-y-auto px-5 py-5 sm:px-7"
+          noValidate
           onSubmit={submitDocument}
         >
           {submissionError && (
@@ -180,7 +198,15 @@ const AddDocumentForm = ({ projectId, document, onClose }) => {
                 placeholder="e.g. Ground floor structural drawings"
                 required
                 defaultValue={document?.title || ''}
+                aria-invalid={Boolean(validationErrors.title)}
+                aria-describedby={validationErrors.title ? 'document-title-error' : undefined}
+                onChange={() => clearFieldError('title')}
               />
+              {validationErrors.title && (
+                <p className="mt-2 text-sm text-red-700" id="document-title-error" role="alert">
+                  {validationErrors.title}
+                </p>
+              )}
             </div>
             <div className="sm:col-span-2">
               <FieldLabel htmlFor="document-description">Document description</FieldLabel>
@@ -203,6 +229,11 @@ const AddDocumentForm = ({ projectId, document, onClose }) => {
                 name="category"
                 defaultValue={document?.file_type || ''}
                 required
+                aria-invalid={Boolean(validationErrors.category)}
+                aria-describedby={
+                  validationErrors.category ? 'document-category-error' : undefined
+                }
+                onChange={() => clearFieldError('category')}
               >
                 <option value="" disabled>
                   Select a category
@@ -213,6 +244,15 @@ const AddDocumentForm = ({ projectId, document, onClose }) => {
                   </option>
                 ))}
               </select>
+              {validationErrors.category && (
+                <p
+                  className="mt-2 text-sm text-red-700"
+                  id="document-category-error"
+                  role="alert"
+                >
+                  {validationErrors.category}
+                </p>
+              )}
             </div>
             <div>
               <FieldLabel htmlFor="document-number">Document Number / Reference No / Version</FieldLabel>
@@ -235,7 +275,15 @@ const AddDocumentForm = ({ projectId, document, onClose }) => {
                 name="date"
                 type="date"
                 defaultValue={document?.document_date?.slice(0, 10) || ''}
+                aria-invalid={Boolean(validationErrors.date)}
+                aria-describedby={validationErrors.date ? 'document-date-error' : undefined}
+                onChange={() => clearFieldError('date')}
               />
+              {validationErrors.date && (
+                <p className="mt-2 text-sm text-red-700" id="document-date-error" role="alert">
+                  {validationErrors.date}
+                </p>
+              )}
             </div>
             <div>
               <FieldLabel htmlFor="document-review-status">Review status</FieldLabel>
@@ -298,13 +346,27 @@ const AddDocumentForm = ({ projectId, document, onClose }) => {
                 type="file"
                 multiple={!isEditing}
                 onChange={addFiles}
-                aria-describedby="document-files-help"
+                aria-invalid={Boolean(validationErrors.files)}
+                aria-describedby={
+                  validationErrors.files
+                    ? 'document-files-help document-files-error'
+                    : 'document-files-help'
+                }
               />
               <p id="document-files-help" className="mt-1.5 text-xs leading-5 text-slate-500">
                 {isEditing
                   ? `Current file: ${getFileName(document.file_path)}. Select one replacement file (up to 20 MB) or leave empty to keep it.`
                   : 'Select one or more files. Each file can be up to 20 MB.'}
               </p>
+              {validationErrors.files && (
+                <p
+                  id="document-files-error"
+                  className="mt-2 text-sm text-red-700"
+                  role="alert"
+                >
+                  {validationErrors.files}
+                </p>
+              )}
               {files.length > 0 && (
                 <ul className="mt-3 divide-y divide-slate-200 rounded-lg border border-slate-200">
                   {files.map((file) => (
@@ -339,22 +401,25 @@ const AddDocumentForm = ({ projectId, document, onClose }) => {
             </div>
           </div>
 
-          <footer className="flex justify-end gap-3 border-t border-slate-100 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isSaving}
-              className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              aria-disabled={isSaving}
-              className="inline-flex min-h-10 items-center justify-center rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 aria-disabled:cursor-wait aria-disabled:opacity-60"
-            >
-              {isSaving ? (isEditing ? 'Saving…' : 'Uploading…') : 'Save'}
-            </button>
+          <footer className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
+            <ValidationSummary show={Object.keys(validationErrors).length > 0} />
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={isSaving}
+                className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                aria-disabled={isSaving}
+                className="inline-flex min-h-10 items-center justify-center rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 aria-disabled:cursor-wait aria-disabled:opacity-60"
+              >
+                {isSaving ? (isEditing ? 'Saving…' : 'Uploading…') : 'Save'}
+              </button>
+            </div>
           </footer>
         </form>
     </Modal>

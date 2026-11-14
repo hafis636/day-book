@@ -2,14 +2,18 @@ import React, { useEffect, useRef, useState } from 'react'
 import { useCreateProjectMutation } from '../../../../redux/services/users/usersApi'
 import { ProjectBackLink } from '../ProjectWorkspaceLayout'
 import { PROJECT_STATUSES, PROJECT_TYPES } from '../constants'
+import {
+  MAX_OTHER_PROJECT_IMAGES,
+  validateProject,
+  validateProjectImages,
+} from './validations/projectValidation'
+import ValidationSummary from './ValidationSummary'
 
 const capitalizeWords = (text) =>
   text.replace(/\b\w/g, (character) => character.toUpperCase())
-const maxImageSize = 5 * 1024 * 1024
-const supportedImageTypes = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp'])
 
 const inputClasses =
-  'mt-2 block w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20'
+  'mt-2 block w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 aria-invalid:border-red-500 aria-invalid:focus:border-red-600 aria-invalid:focus:ring-red-600/20'
 
 const FieldLabel = ({ htmlFor, children, required = false, optional = false }) => (
   <label htmlFor={htmlFor} className="block text-sm font-semibold text-slate-700">
@@ -84,7 +88,9 @@ const AddProjectForm = ({
 }) => {
   const [submissionMessage, setSubmissionMessage] = useState('')
   const [submissionError, setSubmissionError] = useState('')
+  const [validationErrors, setValidationErrors] = useState({})
   const [imageErrors, setImageErrors] = useState({})
+  const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false)
   const [createProject, { isLoading }] = useCreateProjectMutation()
   const [imageInputVersions, setImageInputVersions] = useState({
     coverImage: 0,
@@ -121,14 +127,14 @@ const AddProjectForm = ({
   const handleSubmit = async (event) => {
     event.preventDefault()
     const form = event.currentTarget
-    if (!form.checkValidity() || Object.keys(imageErrors).length) {
-      form.reportValidity()
-      return
-    }
-
+    setHasAttemptedSubmit(true)
     setSubmissionMessage('')
     setSubmissionError('')
     const formValues = new FormData(form)
+    const errors = validateProject(Object.fromEntries(formValues.entries()))
+    setValidationErrors(errors)
+    if (Object.keys(errors).length || Object.keys(imageErrors).length) return
+
     const requestData = new FormData()
     const projectFields = {
       projectName: 'name',
@@ -162,7 +168,9 @@ const AddProjectForm = ({
       } else {
         setSubmissionMessage('Project created successfully.')
         form.reset()
+        setValidationErrors({})
         setImageErrors({})
+        setHasAttemptedSubmit(false)
         revokeFilePreview(coverFile)
         otherFiles.forEach(revokeFilePreview)
         setCoverFile(null)
@@ -186,19 +194,29 @@ const AddProjectForm = ({
     if (submissionError) setSubmissionError('')
   }
 
+  const clearFieldError = (fieldName) => {
+    clearSubmissionMessage()
+    setValidationErrors((errors) => {
+      if (!errors[fieldName]) return errors
+      const nextErrors = { ...errors }
+      delete nextErrors[fieldName]
+      return nextErrors
+    })
+  }
+
   const validateImages = (fieldName) => (event) => {
     clearSubmissionMessage()
     const selectedFiles = Array.from(event.target.files)
-    const nonImageFile = selectedFiles.find((file) => !supportedImageTypes.has(file.type))
-    const oversizedFile = selectedFiles.find((file) => file.size > maxImageSize)
     const remainingOtherImages = otherExistingImages.filter(
       (image) => !removedImageUrls.includes(image.image_url)
     ).length
-    const exceedsOtherImageLimit =
-      fieldName === 'otherImages' &&
-      remainingOtherImages + otherFiles.length + selectedFiles.length > 10
+    const imageError = validateProjectImages({
+      fieldName,
+      selectedFiles,
+      otherImageCount: remainingOtherImages + otherFiles.length,
+    })
 
-    if (nonImageFile || oversizedFile || exceedsOtherImageLimit) {
+    if (imageError) {
       event.target.value = ''
       setImageInputVersions((versions) => ({
         ...versions,
@@ -206,11 +224,7 @@ const AddProjectForm = ({
       }))
       setImageErrors((errors) => ({
         ...errors,
-        [fieldName]: nonImageFile
-          ? `${nonImageFile.name} is not a supported image file. Choose an image file.`
-          : oversizedFile
-            ? `${oversizedFile.name} exceeds the 5 MB per-file limit. Remove it and choose a smaller image.`
-            : 'A maximum of 10 other images can be added to a project.',
+        [fieldName]: imageError,
       }))
       return
     }
@@ -256,7 +270,7 @@ const AddProjectForm = ({
     }))
   }
   const remainingOtherImageSlots =
-    10 -
+    MAX_OTHER_PROJECT_IMAGES -
     otherExistingImages.filter((image) => !removedImageUrls.includes(image.image_url))
       .length -
     otherFiles.length
@@ -349,7 +363,11 @@ const AddProjectForm = ({
     <section className="w-full overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
       {header}
 
-      <form className="space-y-7 px-6 py-7 sm:px-8" onSubmit={handleSubmit}>
+      <form
+        className="space-y-7 px-6 py-7 sm:px-8"
+        noValidate
+        onSubmit={handleSubmit}
+      >
         <fieldset className="space-y-6 rounded-xl border border-slate-200 bg-slate-50/60 p-5">
           <legend className="px-1 text-sm font-semibold text-slate-800">
             Project Details
@@ -367,8 +385,17 @@ const AddProjectForm = ({
               placeholder="e.g. Riverside Apartment"
               defaultValue={project?.name || ''}
               required
-              onChange={clearSubmissionMessage}
+              aria-invalid={Boolean(validationErrors.projectName)}
+              aria-describedby={
+                validationErrors.projectName ? 'project-name-error' : undefined
+              }
+              onChange={() => clearFieldError('projectName')}
             />
+            {validationErrors.projectName && (
+              <p className="mt-2 text-sm text-red-700" id="project-name-error" role="alert">
+                {validationErrors.projectName}
+              </p>
+            )}
           </div>
           <div>
             <FieldLabel htmlFor="description" optional>
@@ -395,7 +422,11 @@ const AddProjectForm = ({
                 name="projectType"
                 defaultValue={project?.project_type || ''}
                 required
-                onChange={clearSubmissionMessage}
+                aria-invalid={Boolean(validationErrors.projectType)}
+                aria-describedby={
+                  validationErrors.projectType ? 'project-type-error' : undefined
+                }
+                onChange={() => clearFieldError('projectType')}
               >
                 <option value="" disabled>
                   Choose a Project Type
@@ -406,6 +437,11 @@ const AddProjectForm = ({
                   </option>
                 ))}
               </select>
+              {validationErrors.projectType && (
+                <p className="mt-2 text-sm text-red-700" id="project-type-error" role="alert">
+                  {validationErrors.projectType}
+                </p>
+              )}
             </div>
 
             <div>
@@ -444,8 +480,17 @@ const AddProjectForm = ({
                 name="startDate"
                 type="date"
                 defaultValue={project?.start_date || ''}
-                onChange={clearSubmissionMessage}
+                aria-invalid={Boolean(validationErrors.startDate)}
+                aria-describedby={
+                  validationErrors.startDate ? 'start-date-error' : undefined
+                }
+                onChange={() => clearFieldError('startDate')}
               />
+              {validationErrors.startDate && (
+                <p className="mt-2 text-sm text-red-700" id="start-date-error" role="alert">
+                  {validationErrors.startDate}
+                </p>
+              )}
             </div>
             <div>
               <FieldLabel htmlFor="expected-completion-date">
@@ -457,8 +502,23 @@ const AddProjectForm = ({
                 name="expectedCompletionDate"
                 type="date"
                 defaultValue={project?.expected_completion_date || ''}
-                onChange={clearSubmissionMessage}
+                aria-invalid={Boolean(validationErrors.expectedCompletionDate)}
+                aria-describedby={
+                  validationErrors.expectedCompletionDate
+                    ? 'expected-completion-date-error'
+                    : undefined
+                }
+                onChange={() => clearFieldError('expectedCompletionDate')}
               />
+              {validationErrors.expectedCompletionDate && (
+                <p
+                  className="mt-2 text-sm text-red-700"
+                  id="expected-completion-date-error"
+                  role="alert"
+                >
+                  {validationErrors.expectedCompletionDate}
+                </p>
+              )}
             </div>
             <div>
               <FieldLabel htmlFor="actual-completion-date">
@@ -470,8 +530,23 @@ const AddProjectForm = ({
                 name="actualCompletionDate"
                 type="date"
                 defaultValue={project?.actual_completion_date || ''}
-                onChange={clearSubmissionMessage}
+                aria-invalid={Boolean(validationErrors.actualCompletionDate)}
+                aria-describedby={
+                  validationErrors.actualCompletionDate
+                    ? 'actual-completion-date-error'
+                    : undefined
+                }
+                onChange={() => clearFieldError('actualCompletionDate')}
               />
+              {validationErrors.actualCompletionDate && (
+                <p
+                  className="mt-2 text-sm text-red-700"
+                  id="actual-completion-date-error"
+                  role="alert"
+                >
+                  {validationErrors.actualCompletionDate}
+                </p>
+              )}
             </div>
           </div>
         </fieldset>
@@ -618,9 +693,18 @@ const AddProjectForm = ({
 
         {!readOnly && (
           <div className="flex flex-col-reverse gap-4 border-t border-slate-200 pt-6 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-slate-500">
-              Project details and selected images will be saved when you submit the form.
-            </p>
+            <div className="space-y-2">
+              <ValidationSummary
+                show={
+                  hasAttemptedSubmit &&
+                  (Object.keys(validationErrors).length > 0 ||
+                    Object.keys(imageErrors).length > 0)
+                }
+              />
+              <p className="text-xs text-slate-500">
+                Project details and selected images will be saved when you submit the form.
+              </p>
+            </div>
             <button
               className="inline-flex min-h-11 items-center justify-center rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-700 focus:ring-offset-2 active:bg-blue-900"
               type="submit"

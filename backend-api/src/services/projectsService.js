@@ -1,6 +1,7 @@
 const { pool } = require('../config/db');
 const paymentsService = require('./paymentsService');
 const projectEventsService = require('./projectEventsService');
+const labourWorkersService = require('./labourWorkersService');
 const {
   deleteProjectImage,
   deleteProjectImageByUrl,
@@ -163,10 +164,11 @@ const getProjectForUser = async (userId, projectId) => {
      ORDER BY display_order ASC, created_at ASC`,
     [projectId]
   );
-  const [transactions, documents, events] = await Promise.all([
+  const [transactions, documents, events, labourAssignments] = await Promise.all([
     paymentsService.getProjectPaymentsForUser(userId, projectId),
     getProjectDocumentsForUser(userId, projectId),
     projectEventsService.getProjectEventsForUser(userId, projectId),
+    labourWorkersService.getProjectLabourAssignmentsForUser(userId, projectId),
   ]);
   if (!transactions || !events) return null;
 
@@ -189,6 +191,7 @@ const getProjectForUser = async (userId, projectId) => {
     expenses: transactions.filter((transaction) => transaction.type === 'expense'),
     documents,
     events,
+    labour_assignments: labourAssignments || [],
   };
 };
 

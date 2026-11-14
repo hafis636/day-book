@@ -36,6 +36,9 @@ jest.mock('../redux/services/users/usersApi', () => ({
   useUploadProjectDocumentsMutation: () => [mockUploadProjectDocuments, { isLoading: false }],
   useDeleteProjectDocumentMutation: () => [mockDeleteProjectDocument, { isLoading: false }],
   useUpdateProjectDocumentMutation: () => [mockUpdateProjectDocument, { isLoading: false }],
+  useCreateProjectEventMutation: () => [jest.fn()],
+  useCreateProjectLabourAssignmentMutation: () => [jest.fn(), { isLoading: false, error: null }],
+  useLazySearchLabourWorkersQuery: () => [jest.fn()],
   useUpdateProjectMutation: () => [mockUpdateProject, { isLoading: false }],
   useDeleteProjectPaymentMutation: () => [jest.fn(), { isLoading: false }],
 }));
@@ -523,7 +526,13 @@ test('renders project documents with responsive project navigation', () => {
         last_name: 'Day',
         email: 'taylor@example.com',
         role: 'engineers',
-        permissions: { ADD_DOCUMENT: true, PROJECT_RIGHT_MENU: true },
+        permissions: {
+          ADD_DOCUMENT: true,
+          PROJECT_RIGHT_MENU: true,
+          VIEW_PAYMENTS: true,
+          VIEW_EXPENSES: true,
+          VIEW_PROGRESS: true,
+        },
       },
     },
     isLoading: false,
@@ -592,7 +601,6 @@ test('renders project documents with responsive project navigation', () => {
     'Expenses',
     'Project Progress',
     'Labour Details',
-    'Work Planning',
     'Material Details',
   ]);
   const workspace = screen.getByRole('region', { name: 'Project workspace' });
@@ -632,7 +640,8 @@ test('renders project documents with responsive project navigation', () => {
       screen.getByRole('heading', { name: 'Documents' })
     ) & Node.DOCUMENT_POSITION_FOLLOWING
   ).toBeTruthy();
-  expect(projectLinks).toHaveLength(8);
+  expect(projectLinks).toHaveLength(7);
+  expect(within(sectionNavigation).queryByRole('link', { name: 'Work Planning' })).not.toBeInTheDocument();
   expect(projectLinks[1]).toHaveClass('bg-blue-50', 'text-blue-700');
   expect(projectLinks[2]).toHaveClass('hover:bg-slate-100');
   userEvent.click(screen.getByRole('button', { name: /open navigation menu/i }));
@@ -657,7 +666,6 @@ test('renders project documents with responsive project navigation', () => {
     ['Expenses', 'expenditure'],
     ['Project Progress', 'project-progress'],
     ['Labour Details', 'labour-details'],
-    ['Work Planning', 'work-planning'],
     ['Material Details', 'material-details'],
   ];
   projectSectionRoutes.forEach(([label, path]) => {
@@ -693,7 +701,7 @@ test.each(['In discussion', 'Planning'])(
           last_name: 'Day',
           email: 'taylor@example.com',
           role: 'engineers',
-          permissions: { PROJECT_RIGHT_MENU: true },
+          permissions: { PROJECT_RIGHT_MENU: true, VIEW_PAYMENTS: true },
         },
       },
       isLoading: false,

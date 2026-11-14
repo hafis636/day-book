@@ -4,7 +4,7 @@ import { createProjectEventBody } from "./projectEventRequest";
 
 export const usersApi = createApi({
   reducerPath: "usersApi",
-  tagTypes: ["Session", "Project", "ProjectDocuments", "ProjectPayments", "ProjectEvents", "Plans", "AdminPlans", "Roles", "Permissions"],
+  tagTypes: ["Session", "Project", "ProjectDocuments", "ProjectPayments", "ProjectEvents", "ProjectLabourAssignments", "Plans", "AdminPlans", "Roles", "Permissions"],
   baseQuery: fetchBaseQuery({
     baseUrl: API_BASE_URL,
     credentials: "include",
@@ -128,6 +128,29 @@ export const usersApi = createApi({
     getProjects: builder.query({
       query: () => "/projects",
       providesTags: ["Project"],
+    }),
+    searchLabourWorkers: builder.query({
+      query: (name) => ({
+        url: "/labour-workers/search",
+        params: { name },
+      }),
+    }),
+    getProjectLabourAssignments: builder.query({
+      query: (projectId) => `/projects/${projectId}/labour-assignments`,
+      providesTags: (result, error, projectId) => [
+        { type: "ProjectLabourAssignments", id: projectId },
+      ],
+    }),
+    createProjectLabourAssignment: builder.mutation({
+      query: ({ projectId, ...assignment }) => ({
+        url: `/projects/${projectId}/labour-assignments`,
+        method: "POST",
+        body: assignment,
+      }),
+      invalidatesTags: (result, error, { projectId }) => [
+        { type: "ProjectLabourAssignments", id: projectId },
+        { type: "Project", id: projectId },
+      ],
     }),
     getProject: builder.query({
       query: (id) => `/projects/${id}`,
@@ -270,6 +293,9 @@ export const {
   useLogoutMutation,
   useCreateProjectMutation,
   useGetProjectsQuery,
+  useLazySearchLabourWorkersQuery,
+  useGetProjectLabourAssignmentsQuery,
+  useCreateProjectLabourAssignmentMutation,
   useGetProjectQuery,
   useUpdateProjectMutation,
   useGetProjectDocumentsQuery,
